@@ -1,0 +1,11 @@
+@use './base/base';
+@use "components/sider";
+
+@use "layouts/mainLayout";
+
+@use "pages/dashboard";
+@use "pages/chatAndCommands";
+@use "pages/settings";
+
+@use "components/navbar";
+@use "components/header";

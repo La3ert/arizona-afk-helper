@@ -1,0 +1,89 @@
+header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+}
+
+.logo-text {
+  margin-bottom: 1rem;
+}
+
+.text {
+  font-size: 2.25rem;
+  text-shadow: var(--shadow);
+  font-weight: 600;
+  &--primary{
+    color: var(--accent-primary);
+  }
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.user-icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  background-color: var(--bg-icon);
+  color: var(--text-icon);
+  margin-bottom: 0.5rem;
+}
+
+.user-name{
+  font-size: 1.5rem;
+}
+
+.user-server{
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.user-status {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  &__text {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: 0.5rem;
+    padding: 0 0.5rem;
+    gap: 8px;
+    &::before {
+      content: '';
+      display: block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: gray;
+    }
+    &--success {
+      color: var(--color-success);
+      background-color: var(--color-success-bg);
+      &::before {
+        background-color: var(--color-success);
+      }
+    }
+    &--danger {
+      color: var(--color-danger);
+      background-color: var(--color-danger-bg);
+      &::before {
+        background-color: var(--color-danger);
+      }
+    }
+  }
+}
+
+
+

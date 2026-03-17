@@ -1,0 +1,13 @@
+.main-layout {
+  display: flex;
+  height: 100vh;
+  border: 2px solid var(--accent-primary);
+  border-radius: 2rem;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.content-area {
+  flex: 1;
+  padding: 2rem;
+}

@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+
+  --bg-main: #1a1d21;
+  --bg-panel: #24282e;
+  --bg-hover: #2c3138;
+  --bg-icon: #4b392b;
+
+  --accent-primary: #fd721d;
+  --accent-hover: #ffb74d;
+
+  --accent-glow1: #fd721d50;
+  --accent-glow2: #fd721d40;
+  --accent-glow3: #fd721d30;
+  --accent-glow4: #fd721d20;
+
+  --shadow:
+          0 0 10px var(--accent-glow1),
+          0 0 20px var(--accent-glow2),
+          0 0 30px var(--accent-glow3),
+          0 0 40px var(--accent-glow4);
+  --btn-shadow:
+          0 0 5px var(--accent-glow1),
+          0 0 10px var(--accent-glow2),
+          0 0 15px var(--accent-glow3),
+          0 0 20px var(--accent-glow4),
+          inset 0 0 5px var(--accent-glow1),
+          inset 0 0 10px var(--accent-glow2),
+          inset 0 0 15px var(--accent-glow3),
+          inset 0 0 20px var(--accent-glow4);
+
+
+
+
+  --text-main: #ffffff;
+  --text-muted: #a0aab5;
+  --text-icon: #f3ba87;
+
+  --border-color: #333840;
+
+  --color-success: #4caf50;
+  --color-success-bg: #4caf5050;
+  --color-danger: #f44336;
+  --color-danger-bg: #f4433650;
+  --color-info: #2196f3;
+
+  --transition-fast: 0.2s ease;
+  --border-radius-md: 12px;
+  --border-radius-sm: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+}
