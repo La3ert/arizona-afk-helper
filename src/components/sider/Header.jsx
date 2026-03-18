@@ -1,4 +1,4 @@
-import { sessionData } from '../sessionData.js';
+import { sessionData } from '../../sessionData.js';
 
 export default function Header() {
   return (

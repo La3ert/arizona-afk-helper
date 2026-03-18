@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
-import Sider from '../components/Sider';
+import Sider from '../components/sider/Sider.jsx';
 
-export default function MainLayout () {
+export default function MainLayout() {
   return (
     <div className='main-layout'>
       <Sider />
@@ -11,5 +11,4 @@ export default function MainLayout () {
       </div>
     </div>
   );
-};
-
+}

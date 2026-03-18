@@ -1,7 +1,16 @@
+import { useState } from 'react';
+import { sessionData } from '../sessionData.js';
+import Cards from '../components/dashboard/Cards.jsx';
+
 export default function Dashboard() {
+  const [session, setSession] = useState(sessionData.session);
+  const [lastPayDay, setLastPayDay] = useState(sessionData.lastPayDay);
+  const [player, setPlayer] = useState(sessionData.player);
+
   return (
     <div className='dashboard-page'>
-      <h2>Дашборд</h2>
+      <span className={'dashboard-page__title'}>Session Monitoring</span>
+      <Cards session={session} lastPayDay={lastPayDay} player={player} />
     </div>
   );
 }
