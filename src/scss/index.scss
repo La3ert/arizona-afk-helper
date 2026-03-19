@@ -9,9 +9,11 @@
 
 @use "components/toggle";
 @use "components/card";
+@use "components/donautChart";
 
 @use "components/sider/navbar";
 @use "components/sider/header";
 @use "components/sider/toggles";
 
 @use "components/dashboard/cards";
+@use "components/dashboard/analytics";

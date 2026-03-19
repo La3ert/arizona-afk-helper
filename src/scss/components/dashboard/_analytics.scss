@@ -1,0 +1,50 @@
+.analytics {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  width: 100%;
+  background-color: var(--bg-panel);
+  border-radius: 2rem;
+  padding: 1rem;
+
+  &__title{
+    font-size: 2rem;
+    font-weight: bolder;
+    margin-bottom: 1rem;
+  }
+
+  &__charts-wrapper {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    width: 100%;
+    margin-bottom: 1rem;
+
+    @media (max-width: 1010px) {
+      grid-template-columns: repeat(1, 1fr);
+    }
+  }
+
+  &__legend {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    gap: 4rem;
+    font-size: 1.25rem;
+    .legend-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      &::before {
+        content: '';
+        display: block;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 0.25rem;
+        background-color: var(--dot-color);
+      }
+    }
+  }
+
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { sessionData } from '../sessionData.js';
 import Cards from '../components/dashboard/Cards.jsx';
+import Analytics from '../components/dashboard/Analytics.jsx';
 
 export default function Dashboard() {
   const [session, setSession] = useState(sessionData.session);
@@ -11,6 +12,7 @@ export default function Dashboard() {
     <div className='dashboard-page'>
       <span className={'dashboard-page__title'}>Session Monitoring</span>
       <Cards session={session} lastPayDay={lastPayDay} player={player} />
+      <Analytics session={session} lastPayDay={lastPayDay} />
     </div>
   );
 }
