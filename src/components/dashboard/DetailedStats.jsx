@@ -1,3 +1,5 @@
+import Title from '../Title.jsx';
+
 export default function DetailedStats({ session, lastPayDay }) {
   const tableData = [
     { name: 'Deposit', payDay: lastPayDay.deposit, session: session.totalDeposit },
@@ -11,7 +13,7 @@ export default function DetailedStats({ session, lastPayDay }) {
 
   return (
     <section className='detailed-stats'>
-      <h2 className='detailed-stats__title'>Detailed Stats</h2>
+      <Title title={'Detailed Stats'} />
       <div className='detailed-stats__table-wrapper'>
         <table className='table-stats'>
           <thead>

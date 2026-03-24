@@ -1,17 +1,9 @@
 .detailed-stats {
-  display: flex;
-  align-items: flex-start;
-  flex-direction: column;
   width: 100%;
   background-color: var(--bg-panel);
   border-radius: 2rem;
   padding: 1rem;
 
-  &__title{
-    font-size: 2rem;
-    font-weight: bolder;
-    margin-bottom: 1rem;
-  }
   &__table-wrapper {
     display: flex;
     align-items: center;

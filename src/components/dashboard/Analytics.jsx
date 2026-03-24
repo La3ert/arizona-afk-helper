@@ -1,4 +1,5 @@
 import DonutChart from '../DonutChart.jsx';
+import Title from '../Title.jsx';
 
 export default function Analytics({ session, lastPayDay }) {
   const payDayData = [
@@ -15,7 +16,7 @@ export default function Analytics({ session, lastPayDay }) {
 
   return (
     <section className='analytics'>
-      <h2 className='analytics__title'>Income analytics</h2>
+      <Title title={'Income analytics'} />
 
       <div className='analytics__charts-wrapper'>
         <DonutChart

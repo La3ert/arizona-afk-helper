@@ -1,0 +1,27 @@
+.chatLog {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+
+  gap: 1rem;
+  background-color: var(--bg-panel);
+  padding: 2rem;
+  border-radius: 1rem;
+  overflow-y: auto;
+  width: 100%;
+
+  margin-bottom: 1rem;
+
+  & > :first-child {
+    margin-top: auto;
+  }
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 4px;
+  }
+}

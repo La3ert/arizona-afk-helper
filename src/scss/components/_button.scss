@@ -1,0 +1,15 @@
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  padding: 1rem;
+  border: 2px solid var(--accent-primary);
+  border-radius: 1rem;
+  color: var(--accent-primary);
+  box-shadow: var(--btn-shadow);
+  text-shadow: var(--shadow);
+  background-color: var(--accent-glow4);
+  min-width: 20%;
+  cursor: pointer;
+}

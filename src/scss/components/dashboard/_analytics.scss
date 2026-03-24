@@ -8,12 +8,6 @@
   padding: 1rem;
   margin-bottom: 1rem;
 
-  &__title{
-    font-size: 2rem;
-    font-weight: bolder;
-    margin-bottom: 1rem;
-  }
-
   &__charts-wrapper {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

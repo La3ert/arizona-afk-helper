@@ -10,6 +10,8 @@
 @use "components/toggle";
 @use "components/card";
 @use "components/donautChart";
+@use "components/title";
+@use "components/button";
 
 @use "components/sider/navbar";
 @use "components/sider/header";
@@ -18,3 +20,6 @@
 @use "components/dashboard/cards";
 @use "components/dashboard/analytics";
 @use "components/dashboard/detailedStats";
+
+@use "components/chatAndCommands/chatLog";
+@use "components/chatAndCommands/chatInput";
