@@ -1,0 +1,55 @@
+.game-connect {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  width: 100%;
+  background-color: var(--bg-panel);
+  border-radius: 2rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+
+  &__description {
+    font-size: 1.5rem;
+    font-weight: lighter;
+    margin-bottom: 1rem;
+  }
+
+  &__code-box {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    border-radius: 1rem;
+    gap: 1rem;
+    width: 100%;
+    background-color: var(--bg-main);
+    border: 1px solid var(--border-color);
+  }
+
+  &__copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 20%;
+    height: 100%;
+    border: none;
+    border-left: 1px solid var(--border-color);
+    background-color: transparent;
+    color: var(--text-muted);
+    outline: none;
+  }
+
+  &__code {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+  }
+
+  .btn {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+}
