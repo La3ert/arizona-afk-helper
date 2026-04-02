@@ -1,14 +1,19 @@
-import { useState } from 'react';
-import { sessionData } from '../sessionData.js';
 import Cards from '../components/dashboard/Cards.jsx';
 import Analytics from '../components/dashboard/Analytics.jsx';
 import DetailedStats from '../components/dashboard/DetailedStats.jsx';
 import Title from '../components/Title.jsx';
 
-export default function Dashboard() {
-  const [session] = useState(sessionData.session);
-  const [lastPayDay] = useState(sessionData.lastPayDay);
-  const [player] = useState(sessionData.player);
+export default function Dashboard({ sessionData }) {
+  if (!sessionData) {
+    return (
+      <div className='dashboard-page'>
+        <Title title={'Session Monitoring'} />
+        <div style={{ color: 'white', marginTop: '20px' }}>Waiting for session data... ⏳</div>
+      </div>
+    );
+  }
+
+  const { session, lastPayDay, player } = sessionData;
 
   return (
     <div className='dashboard-page'>

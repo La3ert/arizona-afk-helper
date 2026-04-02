@@ -1,20 +1,16 @@
-import { useState } from 'react';
-import { chatLog } from '../chatLog.jsx';
 import ChatLog from '../components/chatAndCommands/ChatLog.jsx';
 import Title from '../components/Title.jsx';
 import ChatInput from '../components/chatAndCommands/ChatInput.jsx';
 
-export default function ChatAndCommands() {
-  const [messages] = useState(chatLog);
-
+export default function ChatAndCommands({ chatMessages, onSendMessage }) {
   const handleSendMessage = (text) => {
-    console.log('Отправлено в игру (Lua):', text);
+    onSendMessage(text);
   };
 
   return (
     <div className='chat-page'>
       <Title title={'Chat and Commands'} />
-      <ChatLog messages={messages} />
+      <ChatLog messages={chatMessages} />
       <ChatInput onSendMessage={handleSendMessage} />
     </div>
   );
