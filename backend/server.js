@@ -60,23 +60,23 @@ const broadcastSessionData = () => {
 };
 
 io.on('connection', (socket) => {
-  console.log('⚡ React-клиент подключился! ID:', socket.id);
+  console.log('⚡ React-client connected! ID:', socket.id);
 
   socket.emit('settings_update', sessionData.settings);
   socket.emit('sessionData', sessionData);
 
   socket.on('toggle_setting', (data) => {
     sessionData.settings[data.key] = data.value;
-    console.log(`⚙️ Настройка изменена: ${data.key} = ${data.value}`);
+    console.log(`⚙️ Setting updated: ${data.key} = ${data.value}`);
     io.emit('settings_update', sessionData.settings);
   });
 
   socket.on('client_message', (data) => {
-    console.log('💻 Команда с сайта:', data.message);
+    console.log('💻 Catch message from client:', data.message);
   });
 
   socket.on('disconnect', () => {
-    console.log('❌ React-клиент отключился. ID:', socket.id);
+    console.log('❌ React-client disconnected!. ID:', socket.id);
   });
 });
 

@@ -1,9 +1,6 @@
 import Toggle from '../Toggle.jsx';
-import { useEffect, useState } from 'react';
 
 export default function Toggles({ settings, onToggle }) {
-  const handleToggle = (settingsKey) => {};
-
   if (!settings) {
     return <div className='toggles'>Загрузка настроек...</div>;
   }
