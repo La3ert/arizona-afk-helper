@@ -1,4 +1,16 @@
+import { useEffect, useRef } from 'react';
+
 export default function ChatLog({ messages }) {
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   return (
     <div className='chatLog'>
       {messages.map((item) => (
@@ -22,6 +34,8 @@ export default function ChatLog({ messages }) {
           </span>
         </div>
       ))}
+
+      <div ref={messagesEndRef} />
     </div>
   );
 }
