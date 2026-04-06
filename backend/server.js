@@ -71,8 +71,20 @@ io.on('connection', (socket) => {
     io.emit('settings_update', sessionData.settings);
   });
 
+  let pendingMessages = [];
+
   socket.on('client_message', (data) => {
     console.log('💻 Catch message from client:', data.message);
+    pendingMessages.push(data.message);
+  });
+
+  app.get('/api/get-messages', (req, res) => {
+    // Отдаем массив сообщений скрипту
+    res.json({ messages: pendingMessages });
+
+    if (pendingMessages.length > 0) {
+      pendingMessages = [];
+    }
   });
 
   socket.on('disconnect', () => {
@@ -84,8 +96,8 @@ io.on('connection', (socket) => {
 
 app.post('/api/chat', (req, res) => {
   if (sessionData.settings.chatForwarding) {
-    const fakeMessage = { ...req.body, id: messageId++ };
-    io.emit('chat_message', fakeMessage);
+    const message = { ...req.body, id: messageId++ };
+    io.emit('chat_message', message);
   }
   res.status(200).send({ status: 'ok' });
 });
