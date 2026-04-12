@@ -1,0 +1,31 @@
+{
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "plugins": [
+    "@prettier/plugin-lua"
+  ],
+  "overrides": [
+    {
+      "files": "*.lua",
+      "options": {
+        "printWidth": 120,
+        "tabWidth": 4,
+        "semi": false,
+        "trailingComma": "none"
+      }
+    },
+    {
+      "files": ["frontend/**/*.jsx", "frontend/**/*.js"],
+      "options": {
+        "printWidth": 100,
+        "jsxSingleQuote": true
+      }
+    }
+  ]
+}

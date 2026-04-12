@@ -2,7 +2,7 @@ import Toggle from '../Toggle.jsx';
 
 export default function Toggles({ settings, onToggle }) {
   if (!settings) {
-    return <div className='toggles'>Загрузка настроек...</div>;
+    return <div className='toggles'>Loading...</div>;
   }
 
   return (

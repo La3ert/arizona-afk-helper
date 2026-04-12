@@ -1,28 +1,28 @@
 @use 'base/base';
-@use "components/sider/sider";
+@use 'components/sider/sider';
 
-@use "layouts/mainLayout";
+@use 'layouts/mainLayout';
 
-@use "pages/dashboard";
-@use "pages/chatAndCommands";
-@use "pages/settings";
+@use 'pages/dashboard';
+@use 'pages/chatAndCommands';
+@use 'pages/settings';
 
-@use "components/toggle";
-@use "components/card";
-@use "components/donautChart";
-@use "components/title";
-@use "components/button";
+@use 'components/toggle';
+@use 'components/card';
+@use 'components/donautChart';
+@use 'components/title';
+@use 'components/button';
 
-@use "components/sider/navbar";
-@use "components/sider/header";
-@use "components/sider/toggles";
+@use 'components/sider/navbar';
+@use 'components/sider/header';
+@use 'components/sider/toggles';
 
-@use "components/dashboard/cards";
-@use "components/dashboard/analytics";
-@use "components/dashboard/detailedStats";
+@use 'components/dashboard/cards';
+@use 'components/dashboard/analytics';
+@use 'components/dashboard/detailedStats';
 
-@use "components/chatAndCommands/chatLog";
-@use "components/chatAndCommands/chatInput";
+@use 'components/chatAndCommands/chatLog';
+@use 'components/chatAndCommands/chatInput';
 
-@use "components/settings/gameConnect";
-@use "components/settings/UILanguage";
+@use 'components/settings/gameConnect';
+@use 'components/settings/UILanguage';
