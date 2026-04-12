@@ -1,0 +1,16 @@
+{
+  "name": "arizona-afk-helper-root",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,scss,md,html,lua}\"",
+    "prettier": "prettier"
+  },
+  "devDependencies": {
+    "@prettier/plugin-lua": "^0.0.3",
+    "prettier": "^3.8.2"
+  }
+}

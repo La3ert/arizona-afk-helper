@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-
   --bg-main: #1a1d21;
   --bg-panel: #24282e;
   --bg-hover: #2c3138;
@@ -18,22 +17,13 @@
   --accent-glow4: #fd721d20;
 
   --shadow:
-          0 0 10px var(--accent-glow1),
-          0 0 20px var(--accent-glow2),
-          0 0 30px var(--accent-glow3),
-          0 0 40px var(--accent-glow4);
+    0 0 10px var(--accent-glow1), 0 0 20px var(--accent-glow2),
+    0 0 30px var(--accent-glow3), 0 0 40px var(--accent-glow4);
   --btn-shadow:
-          0 0 5px var(--accent-glow1),
-          0 0 10px var(--accent-glow2),
-          0 0 15px var(--accent-glow3),
-          0 0 20px var(--accent-glow4),
-          inset 0 0 5px var(--accent-glow1),
-          inset 0 0 10px var(--accent-glow2),
-          inset 0 0 15px var(--accent-glow3),
-          inset 0 0 20px var(--accent-glow4);
-
-
-
+    0 0 5px var(--accent-glow1), 0 0 10px var(--accent-glow2),
+    0 0 15px var(--accent-glow3), 0 0 20px var(--accent-glow4),
+    inset 0 0 5px var(--accent-glow1), inset 0 0 10px var(--accent-glow2),
+    inset 0 0 15px var(--accent-glow3), inset 0 0 20px var(--accent-glow4);
 
   --text-main: #ffffff;
   --text-muted: #a0aab5;
