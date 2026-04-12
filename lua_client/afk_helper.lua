@@ -19,9 +19,6 @@ local isHiddenStatsRequested = false
 local isParsingPayDay = false
 local pdData = {}
 
--- ==========================================
--- 1. АСИНХРОННАЯ ОТПРАВКА ДАННЫХ
--- ==========================================
 local function sendDataAsync(endpoint, dataTable)
     lua_thread.create(function()
         local jsonData = cjson.encode(dataTable)
@@ -35,9 +32,6 @@ local function sendDataAsync(endpoint, dataTable)
     end)
 end
 
--- ==========================================
--- 2. ГЛАВНЫЙ ЦИКЛ (ИНИЦИАЛИЗАЦИЯ)
--- ==========================================
 function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     while not isSampAvailable() do
@@ -91,25 +85,20 @@ function main()
         )
     end)
 
-    -- Команда управления настройками
     sampRegisterChatCommand('afkhelper', function(arg)
-        -- Если ничего не ввели
         if #arg == 0 then
             sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Использование: /afkhelper [настройка] [true/false]', -1)
             sampAddChatMessage('{FCAA4D}[Доступные] {FFFFFF}chatForwarding, payDayStats, remoteControl, auto2FA', -1)
             return
         end
 
-        -- Разбиваем строку на два слова
         local flagName, flagValueStr = string.match(arg, '^(%S+)%s+(%S+)$')
 
-        -- Если формат неверный (ввели только одно слово или больше двух)
         if not flagName or not flagValueStr then
             sampAddChatMessage('{FF0000}[Ошибка] {FFFFFF}Неверный формат. Пример: /afkhelper chatForwarding false', -1)
             return
         end
 
-        -- Заглушка для 2FA
         if flagName == 'auto2FA' then
             sampAddChatMessage(
                 '{FF0000}[AFK Helper] {FFFFFF}Эта функция находится в разработке и на данный момент недоступна.',
@@ -118,7 +107,6 @@ function main()
             return
         end
 
-        -- Превращаем текст в логическое значение
         local flagValue
         if flagValueStr == 'true' then
             flagValue = true
@@ -129,13 +117,11 @@ function main()
             return
         end
 
-        -- Отправляем на сервер
         sendDataAsync('/settings', {
             key = flagName,
             value = flagValue
         })
 
-        -- Сообщаем в чат об успехе
         local statusColor = flagValue and '{00FF00}ВКЛЮЧЕНА' or '{FF0000}ВЫКЛЮЧЕНА'
         sampAddChatMessage(
             '{FCAA4D}[AFK Helper] {FFFFFF}Настройка {FCAA4D}' .. flagName .. '{FFFFFF} теперь ' .. statusColor,
@@ -176,32 +162,22 @@ function onScriptTerminate(script, quitGame)
     end
 end
 
--- ==========================================
--- 3. ПЕРЕХВАТЧИК ЧАТА (Кусочки текста + PayDay)
--- ==========================================
 function sampEvents.onServerMessage(color, text)
-    -- Очищаем текст для работы PayDay (он остается без изменений)
     local plainText = text:gsub('{%x+}', '')
 
-    -- 3.1 ПАРСЕР ЧАТА НА КУСОЧКИ ДЛЯ ФРОНТЕНДА
-    -- bit.band отсекает лишний Альфа-канал и оставляет чистый RGB цвет
-    -- Сдвигаем цвет на 8 бит вправо (убираем прозрачность FF в конце) и берем чистые 6 символов RGB
     local cleanRGB = bit.band(bit.rshift(color, 8), 0xFFFFFF)
     local baseColor = string.format('#%06X', cleanRGB)
     local chatParts = {}
     local currentColor = baseColor
     local lastPos = 1
 
-    -- Железобетонный цикл, который по очереди ищет все теги {HEX}
     while true do
         local startPos, endPos, hex = string.find(text, '{(%x%x%x%x%x%x)}', lastPos)
 
-        -- Если цветов больше нет, прерываем цикл
         if not startPos then
             break
         end
 
-        -- Если перед найденным цветом есть текст, сохраняем его со старым цветом
         if startPos > lastPos then
             local textChunk = string.sub(text, lastPos, startPos - 1)
             table.insert(chatParts, {
@@ -210,13 +186,10 @@ function sampEvents.onServerMessage(color, text)
             })
         end
 
-        -- Обновляем текущий цвет на найденный
         currentColor = '#' .. string.upper(hex)
-        -- Сдвигаем указатель поиска дальше (за закрывающую скобку '}')
         lastPos = endPos + 1
     end
 
-    -- Сохраняем весь оставшийся хвост текста
     if lastPos <= #text then
         local textChunk = string.sub(text, lastPos)
         table.insert(chatParts, {
@@ -225,13 +198,11 @@ function sampEvents.onServerMessage(color, text)
         })
     end
 
-    -- Отправляем
     sendDataAsync('/chat', {
         time = os.date('%H:%M:%S'),
         parts = chatParts
     })
 
-    -- 3.2 ЛОВЕЦ PAYDAY
     if plainText:find('Банковский чек') and plainText:find('____') then
         isParsingPayDay = true
         pdData = {
@@ -295,9 +266,6 @@ function sampEvents.onServerMessage(color, text)
     end
 end
 
--- ==========================================
--- 4. ПЕРЕХВАТЧИК ДИАЛОГОВ (Режим Ниндзя)
--- ==========================================
 function sampEvents.onShowDialog(dialogId, style, title, button1, button2, text)
     if isHiddenStatsRequested and title:find('Основная статистика') then
         isHiddenStatsRequested = false
