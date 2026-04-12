@@ -1,4 +1,11 @@
-export default function Card({ image, title, value, footer, withProgressBar = false, progressPercentage = 0 }) {
+export default function Card({
+  image,
+  title,
+  value,
+  footer,
+  withProgressBar = false,
+  progressPercentage = 0,
+}) {
   return (
     <div className='card'>
       <div className='card__title'>

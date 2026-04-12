@@ -54,6 +54,7 @@ let sessionData = {
 
 let disconnectTimer = null;
 let messageId = 0;
+let pendingMessages = [];
 
 const broadcastSessionData = () => {
   io.emit('sessionData', sessionData);
@@ -71,20 +72,9 @@ io.on('connection', (socket) => {
     io.emit('settings_update', sessionData.settings);
   });
 
-  let pendingMessages = [];
-
   socket.on('client_message', (data) => {
     console.log('💻 Catch message from client:', data.message);
     pendingMessages.push(data.message);
-  });
-
-  app.get('/api/get-messages', (req, res) => {
-    // Отдаем массив сообщений скрипту
-    res.json({ messages: pendingMessages });
-
-    if (pendingMessages.length > 0) {
-      pendingMessages = [];
-    }
   });
 
   socket.on('disconnect', () => {
@@ -93,6 +83,29 @@ io.on('connection', (socket) => {
 });
 
 //###########################################################
+
+app.get('/api/get-messages', (req, res) => {
+  res.json({ messages: pendingMessages });
+
+  if (pendingMessages.length > 0) {
+    pendingMessages = [];
+  }
+});
+
+app.post('/api/settings', (req, res) => {
+  const { key, value } = req.body;
+
+  if (sessionData.settings[key] !== undefined) {
+    sessionData.settings[key] = value;
+    console.log(`🎮 Настройка изменена из игры: ${key} = ${value}`);
+
+    io.emit('settings_update', sessionData.settings);
+
+    res.status(200).send({ status: 'ok' });
+  } else {
+    res.status(400).send({ status: 'error', message: 'Unknown setting' });
+  }
+});
 
 app.post('/api/chat', (req, res) => {
   if (sessionData.settings.chatForwarding) {
@@ -206,7 +219,7 @@ app.post('/api/disconnect', (req, res) => {
       dividends: 0,
     };
     broadcastSessionData();
-  }, 12000);
+  }, 120000);
 
   res.status(200).send({ status: 'ok' });
 });

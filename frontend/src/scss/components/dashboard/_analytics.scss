@@ -30,7 +30,7 @@
     @media (max-width: 610px) {
       align-items: center;
       flex-direction: column;
-      gap: 1rem
+      gap: 1rem;
     }
     .legend-title {
       display: flex;
@@ -46,5 +46,4 @@
       }
     }
   }
-
 }

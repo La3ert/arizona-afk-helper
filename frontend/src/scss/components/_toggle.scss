@@ -26,7 +26,9 @@
       height: 19px;
       border-radius: 50%;
       background-color: var(--border-color);
-      transition: transform var(--transition-fast), background-color var(--transition-fast);
+      transition:
+        transform var(--transition-fast),
+        background-color var(--transition-fast);
     }
   }
 }
