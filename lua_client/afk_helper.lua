@@ -19,6 +19,8 @@ local isHiddenStatsRequested = false
 local isParsingPayDay = false
 local pdData = {}
 
+local httpQueue = {}
+
 local function parseMoney(str)
     if type(str) ~= 'string' then
         str = tostring(str)
@@ -51,16 +53,10 @@ local function parseMoney(str)
 end
 
 local function sendDataAsync(endpoint, dataTable)
-    lua_thread.create(function()
-        pcall(function()
-            -- Перенесли cjson.encode внутрь pcall для абсолютной защиты от крашей
-            local jsonData = cjson.encode(dataTable)
-            requests.post(API_URL .. endpoint, {
-                headers = { ['Content-Type'] = 'application/json' },
-                data = jsonData
-            })
-        end)
-    end)
+    table.insert(httpQueue, {
+        endpoint = endpoint,
+        data = dataTable
+    })
 end
 
 function main()
@@ -96,17 +92,17 @@ function main()
     sampSendChat('/stats')
 
     --sampRegisterChatCommand("testpd", function()
-    --        sampAddChatMessage("{00FF00}[AFK Helper] {FFFFFF}Запускаю симуляцию часового PayDay...", -1)
-    --        sampEvents.onServerMessage(0xFFFFFF, " ? БАНКОВСКИЙ ЧЕК ?")
-    --        sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
-    --        sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма в банке: ? 4 ? 364.036 (+? 1 ? 83.509)")
-    --        sampEvents.onServerMessage(0xFFFFFF, "| В данный момент у вас 78-й уровень и 129/316 респектов (+8 EXP)")
-    --        sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма на депозите: ? 289 ? 424.100 (+? 981.996)")
-    --        sampEvents.onServerMessage(0xFFFFFF, "| Общая заработная плата: ? 1 ? 83.509")
-    --        sampEvents.onServerMessage(0xFFFFFF, "| Баланс на донат-счет: 2741 AZ (+8 AZ)")
-    --        sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
-    --        sampEvents.onServerMessage(0xFFFFFF, "Вы получили +? 30.000 за Дивидентный договор (выдается каждый часовой PayDay)")
-    --    end)
+    --    sampAddChatMessage("{00FF00}[AFK Helper] {FFFFFF}Запускаю симуляцию часового PayDay...", -1)
+    --    sampEvents.onServerMessage(0xFFFFFF, " ? БАНКОВСКИЙ ЧЕК ?")
+    --    sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
+    --    sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма в банке: ? 4 ? 364.036 (+? 1 ? 83.509)")
+    --    sampEvents.onServerMessage(0xFFFFFF, "| В данный момент у вас 78-й уровень и 129/316 респектов (+8 EXP)")
+    --    sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма на депозите: ? 289 ? 424.100 (+? 981.996)")
+    --    sampEvents.onServerMessage(0xFFFFFF, "| Общая заработная плата: ? 1 ? 83.509")
+    --    sampEvents.onServerMessage(0xFFFFFF, "| Баланс на донат-счет: 2741 AZ (+8 AZ)")
+    --    sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
+    --    sampEvents.onServerMessage(0xFFFFFF, "Вы получили +? 30.000 за Дивидентный договор (выдается каждый часовой PayDay)")
+    --end)
 
     sampRegisterChatCommand('afkhelper', function(arg)
         if #arg == 0 then
@@ -116,60 +112,47 @@ function main()
         end
 
         local flagName, flagValueStr = string.match(arg, '^(%S+)%s+(%S+)$')
+        if not flagName or not flagValueStr then return end
+        if flagName == 'auto2FA' then return end
 
-        if not flagName or not flagValueStr then
-            sampAddChatMessage('{FF0000}[Ошибка] {FFFFFF}Неверный формат. Пример: /afkhelper chatForwarding false', -1)
-            return
-        end
-
-        if flagName == 'auto2FA' then
-            sampAddChatMessage(
-                '{FF0000}[AFK Helper] {FFFFFF}Эта функция находится в разработке и на данный момент недоступна.',
-                -1
-            )
-            return
-        end
-
-        local flagValue
-        if flagValueStr == 'true' then
-            flagValue = true
-        elseif flagValueStr == 'false' then
-            flagValue = false
-        else
-            sampAddChatMessage("{FF0000}[Ошибка] {FFFFFF}Значение должно быть строго 'true' или 'false'.", -1)
-            return
-        end
-
+        local flagValue = (flagValueStr == 'true')
         sendDataAsync('/settings', {
             key = flagName,
             value = flagValue
         })
-
-        local statusColor = flagValue and '{00FF00}ВКЛЮЧЕНА' or '{FF0000}ВЫКЛЮЧЕНА'
-        sampAddChatMessage(
-            '{FCAA4D}[AFK Helper] {FFFFFF}Настройка {FCAA4D}' .. flagName .. '{FFFFFF} теперь ' .. statusColor,
-            -1
-        )
     end)
 
     lua_thread.create(function()
+        local lastGetTime = os.clock()
+
         while true do
-            wait(1000)
+            wait(20)
 
-            pcall(function()
-                local response = requests.get(API_URL .. '/get-messages')
+            if #httpQueue > 0 then
+                local req = table.remove(httpQueue, 1)
+                local success, jsonData = pcall(cjson.encode, req.data)
 
-                if response and response.status_code == 200 then
-                    local data = cjson.decode(response.text)
-
-                    if data.messages and #data.messages > 0 then
-                        for _, msg in ipairs(data.messages) do
-                            local sampMessage = u8:decode(msg)
-                            sampSendChat(sampMessage)
-                        end
-                    end
+                if success and jsonData then
+                    requests.post(API_URL .. req.endpoint, {
+                        headers = { ['Content-Type'] = 'application/json' },
+                        data = jsonData
+                    })
                 end
-            end)
+            elseif os.clock() - lastGetTime >= 1.0 then
+                lastGetTime = os.clock()
+
+                local response = requests.get(API_URL .. '/get-messages')
+                if response and response.status_code == 200 then
+                    pcall(function()
+                        local data = cjson.decode(response.text)
+                        if data.messages and #data.messages > 0 then
+                            for _, msg in ipairs(data.messages) do
+                                sampSendChat(u8:decode(msg))
+                            end
+                        end
+                    end)
+                end
+            end
         end
     end)
 
@@ -180,7 +163,13 @@ end
 
 function onScriptTerminate(script, quitGame)
     if script == thisScript() then
-        sendDataAsync('/disconnect', {})
+        pcall(function()
+            local jsonData = cjson.encode({})
+            requests.post(API_URL .. '/disconnect', {
+                headers = { ['Content-Type'] = 'application/json' },
+                data = jsonData
+            })
+        end)
     end
 end
 
@@ -199,9 +188,8 @@ function sampEvents.onServerMessage(color, text)
         end
 
         if startPos > lastPos then
-            local textChunk = string.sub(text, lastPos, startPos - 1)
             table.insert(chatParts, {
-                text = u8(textChunk),
+                text = u8(string.sub(text, lastPos, startPos - 1)),
                 color = baseColor
             })
         end
@@ -211,9 +199,8 @@ function sampEvents.onServerMessage(color, text)
     end
 
     if lastPos <= #text then
-        local textChunk = string.sub(text, lastPos)
         table.insert(chatParts, {
-            text = u8(textChunk),
+            text = u8(string.sub(text, lastPos)),
             color = baseColor
         })
     end
@@ -223,7 +210,6 @@ function sampEvents.onServerMessage(color, text)
         parts = chatParts
     })
 
-    -- НАЧАЛО: ЗАХВАТ PAYDAY (Без зависимости от рамок)
     if not isParsingPayDay and plainText:find('БАНКОВСКИЙ ЧЕК') then
         isParsingPayDay = true
         pdData = {
@@ -239,7 +225,6 @@ function sampEvents.onServerMessage(color, text)
             depositBalance = 0
         }
 
-        -- Запускаем Окно Записи на 1 секунду. Собираем всё и принудительно отправляем.
         lua_thread.create(function()
             wait(1000)
             if isParsingPayDay then
