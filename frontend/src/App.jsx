@@ -63,7 +63,11 @@ function App() {
           <Route
             path='chat'
             element={
-              <ChatAndCommands chatMessages={messages} onSendMessage={sendMessageToServer} />
+              <ChatAndCommands
+                chatMessages={messages}
+                onSendMessage={sendMessageToServer}
+                settings={settings}
+              />
             }
           />
           <Route path='settings' element={<Settings />} />
