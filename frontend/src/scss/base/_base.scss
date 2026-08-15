@@ -69,3 +69,15 @@ a {
 ul {
   list-style: none;
 }
+
+html {
+  font-size: 100%;
+
+  @media (max-width: 768px) {
+    font-size: 87.5%;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 75%;
+  }
+}
