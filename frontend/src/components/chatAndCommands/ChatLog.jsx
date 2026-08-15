@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { parseChatText } from '../../utils/ChatParser.jsx';
 
 export default function ChatLog({ messages }) {
   const messagesEndRef = useRef(null);
@@ -28,7 +27,7 @@ export default function ChatLog({ messages }) {
 
           {item.parts?.map((part, partIndex) => (
             <span key={partIndex} style={{ color: part.color }}>
-              {parseChatText(part.text)}
+              {part.text}
             </span>
           ))}
         </div>

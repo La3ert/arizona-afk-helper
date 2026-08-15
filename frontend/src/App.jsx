@@ -7,7 +7,7 @@ import Settings from './pages/Settings.jsx';
 import { io } from 'socket.io-client';
 import { useEffect, useState } from 'react';
 
-const socket = io('http://localhost:3000');
+const socket = io(`http://${window.location.hostname}:3000`);
 
 function App() {
   const [messages, setMessages] = useState([]);
