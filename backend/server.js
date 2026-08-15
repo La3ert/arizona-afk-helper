@@ -32,6 +32,7 @@ let sessionData = {
     maxExp: 0,
     bankBalance: 0,
     depositBalance: 0,
+    AZCoinsBalance: 0,
   },
   session: {
     totalEarnedAZCoins: 0,
@@ -40,6 +41,8 @@ let sessionData = {
     totalSalary: 0,
     totalDeposit: 0,
     totalDividends: 0,
+    totalPayDays: 0,
+    hourlyPayDays: 0,
   },
   lastPayDay: {
     time: 'No info',
@@ -141,6 +144,7 @@ app.post('/api/auth', (req, res) => {
   sessionData.player.maxExp = req.body.maxExp;
   sessionData.player.bankBalance = req.body.bankBalance;
   sessionData.player.depositBalance = req.body.depositBalance;
+  sessionData.player.AZCoinsBalance = req.body.AZCoinsBalance;
 
   broadcastSessionData();
   res.status(200).send({ status: 'ok' });
@@ -160,6 +164,8 @@ app.post('/api/payday', (req, res) => {
     maxExp,
     bankBalance,
     depositBalance,
+    AZCoinsBalance,
+    hourlyPayDay,
   } = req.body;
 
   const hourTotal = (salary || 0) + (deposit || 0) + (dividends || 0);
@@ -169,6 +175,12 @@ app.post('/api/payday', (req, res) => {
   sessionData.player.maxExp = maxExp;
   sessionData.player.bankBalance = bankBalance;
   sessionData.player.depositBalance = depositBalance;
+  sessionData.player.AZCoinsBalance = AZCoinsBalance;
+  sessionData.session.totalPayDays++;
+
+  if (hourlyPayDay) {
+    sessionData.session.hourlyPayDays++;
+  }
 
   sessionData.lastPayDay = {
     time: new Date().toLocaleTimeString('ru-RU'),
@@ -207,6 +219,8 @@ app.post('/api/disconnect', (req, res) => {
       totalSalary: 0,
       totalDeposit: 0,
       totalDividends: 0,
+      totalPayDays: 0,
+      hourlyPayDays: 0,
     };
 
     sessionData.lastPayDay = {
