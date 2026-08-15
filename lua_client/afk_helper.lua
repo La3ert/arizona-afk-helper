@@ -212,6 +212,13 @@ function sampEvents.onServerMessage(color, text)
 
     if not isParsingPayDay and plainText:find('БАНКОВСКИЙ ЧЕК') then
         isParsingPayDay = true
+
+        local currentMinute = tonumber(os.date('%M'))
+        local isHourly = false
+        if currentMinute >= 58 or currentMinute <= 15 then
+            isHourly = true
+        end
+
         pdData = {
             salary = 0,
             deposit = 0,
@@ -222,7 +229,9 @@ function sampEvents.onServerMessage(color, text)
             curExp = 0,
             maxExp = 0,
             bankBalance = 0,
-            depositBalance = 0
+            depositBalance = 0,
+            AZCoinsBalance = 0,
+            hourlyPayDay = isHourly
         }
 
         lua_thread.create(function()
@@ -250,6 +259,7 @@ function sampEvents.onServerMessage(color, text)
                 if lvl then
                     pdData.level, pdData.curExp, pdData.maxExp = tonumber(lvl), tonumber(cur), tonumber(max)
                 end
+
                 local expPart = plainText:match('%(([^%)]+)%)')
                 if expPart then
                     pdData.earnedExp = parseMoney(expPart)
@@ -275,7 +285,12 @@ function sampEvents.onServerMessage(color, text)
             end
 
             if plainText:find('AZ') and plainText:find('донат%-счет:') then
+                local mainPart = plainText:match('донат%-счет:([^(]+)')
                 local earnPart = plainText:match('%(([^%)]+)%)')
+
+                if mainPart then
+                    pdData.AZCoinsBalance = parseMoney(mainPart)
+                end
                 if earnPart then
                     pdData.earnedAZCoins = parseMoney(earnPart)
                 end
@@ -296,19 +311,24 @@ function sampEvents.onShowDialog(dialogId, style, title, button1, button2, text)
         isHiddenStatsRequested = false
         local plainText = text:gsub('{%x+}', '')
 
-        local levelNum = tonumber(plainText:match('Уровень:%s*%[(%d+)%]')) or sampGetPlayerScore(myId)
+        local levelNum = tonumber(plainText:match('Уровень:%s*%[(%d+)%]')) or sampGetPlayerScore(PLAYER_PED)
         local curExpNum = tonumber(plainText:match('Уважение:%s*%[(%d+)/')) or 0
         local maxExpNum = tonumber(plainText:match('Уважение:%s*%[%d+/(%d+)%]')) or 0
 
         local bankLine = plainText:match('Деньги в банке:([^\n]+)')
         local depLine = plainText:match('Деньги на депозите:([^\n]+)')
 
+        local azLine =
+            plainText:match('состояние счета:([^\n]+AZ%-Coins[^\n]*)') or plainText:match('AZ%-Coins:([^\n]+)')
+        local azBalanceNum = parseMoney(azLine)
+
         sendDataAsync('/auth', {
             level = levelNum,
             curExp = curExpNum,
             maxExp = maxExpNum,
             bankBalance = parseMoney(bankLine),
-            depositBalance = parseMoney(depLine)
+            depositBalance = parseMoney(depLine),
+            AZCoinsBalance = azBalanceNum
         })
 
         sampSendDialogResponse(dialogId, 0, 0, '')
