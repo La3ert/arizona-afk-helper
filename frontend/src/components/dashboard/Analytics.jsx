@@ -27,7 +27,7 @@ export default function Analytics({ session, lastPayDay }) {
 
         <DonutChart
           title='TOTAL FOR SESSION'
-          data={payDayData.filter((item) => item.value > 0)}
+          data={sessionData.filter((item) => item.value > 0)}
           totalValue={`$ ${(session.totalEarned / 1000000).toFixed(2)}M`}
         />
       </div>
