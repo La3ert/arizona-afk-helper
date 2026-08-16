@@ -234,12 +234,15 @@ function sampEvents.onServerMessage(color, text)
             hourlyPayDay = isHourly
         }
 
+        isHiddenStatsRequested = true
+        sampSendChat('/stats')
+
         lua_thread.create(function()
-            wait(1000)
+            wait(2000)
             if isParsingPayDay then
                 isParsingPayDay = false
                 sendDataAsync('/payday', pdData)
-                sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Данные PayDay успешно собраны и отправлены!', -1)
+                sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Данные PayDay и балансы успешно собраны!', -1)
             end
         end)
         return
@@ -247,19 +250,7 @@ function sampEvents.onServerMessage(color, text)
 
     if isParsingPayDay then
         pcall(function()
-            if plainText:find('банке:') then
-                local mainPart = plainText:match('банке:([^%(]+)')
-                if mainPart then
-                    pdData.bankBalance = parseMoney(mainPart)
-                end
-            end
-
             if plainText:find('уровень') and plainText:find('респект') then
-                local lvl, cur, max = plainText:match('(%d+)%-.-(%d+)/(%d+)')
-                if lvl then
-                    pdData.level, pdData.curExp, pdData.maxExp = tonumber(lvl), tonumber(cur), tonumber(max)
-                end
-
                 local expPart = plainText:match('%(([^%)]+)%)')
                 if expPart then
                     pdData.earnedExp = parseMoney(expPart)
@@ -267,11 +258,7 @@ function sampEvents.onServerMessage(color, text)
             end
 
             if plainText:find('депозите:') then
-                local mainPart = plainText:match('депозите:([^%(]+)')
                 local earnPart = plainText:match('%(([^%)]+)%)')
-                if mainPart then
-                    pdData.depositBalance = parseMoney(mainPart)
-                end
                 if earnPart then
                     pdData.deposit = parseMoney(earnPart)
                 end
@@ -285,12 +272,7 @@ function sampEvents.onServerMessage(color, text)
             end
 
             if plainText:find('AZ') and plainText:find('донат%-счет:') then
-                local mainPart = plainText:match('донат%-счет:([^(]+)')
                 local earnPart = plainText:match('%(([^%)]+)%)')
-
-                if mainPart then
-                    pdData.AZCoinsBalance = parseMoney(mainPart)
-                end
                 if earnPart then
                     pdData.earnedAZCoins = parseMoney(earnPart)
                 end
@@ -322,14 +304,23 @@ function sampEvents.onShowDialog(dialogId, style, title, button1, button2, text)
             plainText:match('состояние счета:([^\n]+AZ%-Coins[^\n]*)') or plainText:match('AZ%-Coins:([^\n]+)')
         local azBalanceNum = parseMoney(azLine)
 
-        sendDataAsync('/auth', {
-            level = levelNum,
-            curExp = curExpNum,
-            maxExp = maxExpNum,
-            bankBalance = parseMoney(bankLine),
-            depositBalance = parseMoney(depLine),
-            AZCoinsBalance = azBalanceNum
-        })
+        if isParsingPayDay then
+            pdData.level = levelNum
+            pdData.curExp = curExpNum
+            pdData.maxExp = maxExpNum
+            pdData.bankBalance = parseMoney(bankLine)
+            pdData.depositBalance = parseMoney(depLine)
+            pdData.AZCoinsBalance = azBalanceNum
+        else
+            sendDataAsync('/auth', {
+                level = levelNum,
+                curExp = curExpNum,
+                maxExp = maxExpNum,
+                bankBalance = parseMoney(bankLine),
+                depositBalance = parseMoney(depLine),
+                AZCoinsBalance = azBalanceNum
+            })
+        end
 
         sampSendDialogResponse(dialogId, 0, 0, '')
         return false
