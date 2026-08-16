@@ -3,13 +3,11 @@
 :root {
   --bg-main: #1a1d21;
   --bg-panel: #24282e;
-  --bg-hover: #2c3138;
   --bg-icon: #4b392b;
   --bg-black: #0f0f0f;
   --bg-white: #ffffff;
 
   --accent-primary: #fd721d;
-  --accent-hover: #ffb74d;
 
   --accent-glow1: #fd721d50;
   --accent-glow2: #fd721d40;
@@ -38,13 +36,6 @@
   --color-info: #2196f3;
 
   --transition-fast: 0.2s ease;
-  --border-radius-md: 12px;
-  --border-radius-sm: 8px;
-
-  --lavka-bg: #ffb8b8;
-  --house-bg: #c3ffb7;
-  --biz-bg: #fdffb7;
-  --call-bg: #b7e9ff;
 }
 
 * {
