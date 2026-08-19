@@ -34,7 +34,11 @@ export default function Cards({ session, lastPayDay, player }) {
         image={clockIcon}
         title={'Last PayDay'}
         value={`$ ${lastPayDay.totalEarned}`}
-        footer={`in ${lastPayDay.time}`}
+        footer={
+          lastPayDay.time
+            ? `in ${new Date(lastPayDay.time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+            : 'No info'
+        }
       />
       <Card
         image={payDay}
