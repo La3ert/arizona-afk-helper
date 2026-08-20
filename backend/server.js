@@ -45,7 +45,7 @@ let sessionData = {
     hourlyPayDays: 0,
   },
   lastPayDay: {
-    time: 'No info',
+    time: null,
     earnedAZCoins: 0,
     earnedExp: 0,
     totalEarned: 0,
@@ -58,10 +58,38 @@ let sessionData = {
 let disconnectTimer = null;
 let messageId = 0;
 let pendingMessages = [];
+let playerTimeout = null; // Наш таймер пульса
 
 const broadcastSessionData = () => {
   io.emit('sessionData', sessionData);
 };
+
+function handlePlayerDisconnect() {
+  sessionData.player.isOnline = false;
+  sessionData.player.isAuthorized = false;
+
+  broadcastSessionData();
+
+  if (!disconnectTimer) {
+    disconnectTimer = setTimeout(() => {
+      console.log('💀 Session expired.');
+
+      sessionData.session = {
+        totalEarnedAZCoins: 0,
+        totalEarnedExp: 0,
+        totalEarned: 0,
+        totalSalary: 0,
+        totalDeposit: 0,
+        totalDividends: 0,
+        totalPayDays: 0,
+        hourlyPayDays: 0,
+      };
+
+      broadcastSessionData();
+      disconnectTimer = null;
+    }, 120000);
+  }
+}
 
 io.on('connection', (socket) => {
   console.log('⚡ React-client connected! ID:', socket.id);
@@ -131,11 +159,15 @@ app.post('/api/connect', (req, res) => {
     disconnectTimer = null;
   }
 
+  if (playerTimeout) clearTimeout(playerTimeout);
+  playerTimeout = setTimeout(() => {
+    handlePlayerDisconnect();
+  }, 25000);
+
   broadcastSessionData();
   res.status(200).send({ status: 'ok' });
 });
 
-// Маршрут для успешной авторизации
 app.post('/api/auth', (req, res) => {
   console.log(`✅ Player authorized!`);
   sessionData.player.isAuthorized = true;
@@ -147,6 +179,30 @@ app.post('/api/auth', (req, res) => {
   sessionData.player.AZCoinsBalance = req.body.AZCoinsBalance;
 
   broadcastSessionData();
+  res.status(200).send({ status: 'ok' });
+});
+
+app.post('/api/ping', (req, res) => {
+  if (playerTimeout) clearTimeout(playerTimeout);
+
+  if (disconnectTimer) {
+    clearTimeout(disconnectTimer);
+    disconnectTimer = null;
+  }
+
+  if (!sessionData.player.isOnline) {
+    sessionData.player.isOnline = true;
+    broadcastSessionData();
+  }
+
+  playerTimeout = setTimeout(() => {
+    handlePlayerDisconnect();
+  }, 25000);
+
+  if (!sessionData.player.isAuthorized) {
+    return res.status(200).send({ status: 'needs_auth' });
+  }
+
   res.status(200).send({ status: 'ok' });
 });
 
@@ -183,7 +239,7 @@ app.post('/api/payday', (req, res) => {
   }
 
   sessionData.lastPayDay = {
-    time: new Date().toLocaleTimeString('ru-RU'),
+    time: Date.now(),
     earnedAZCoins: earnedAZCoins || 0,
     earnedExp: earnedExp || 0,
     salary: salary || 0,
@@ -204,37 +260,8 @@ app.post('/api/payday', (req, res) => {
 });
 
 app.post('/api/disconnect', (req, res) => {
-  console.log(`⚠️ Player disconnected.`);
-  sessionData.player.isOnline = false;
-  sessionData.player.isAuthorized = false;
-  broadcastSessionData();
-
-  disconnectTimer = setTimeout(() => {
-    console.log('💀 Session expired.');
-
-    sessionData.session = {
-      totalEarnedAZCoins: 0,
-      totalEarnedExp: 0,
-      totalEarned: 0,
-      totalSalary: 0,
-      totalDeposit: 0,
-      totalDividends: 0,
-      totalPayDays: 0,
-      hourlyPayDays: 0,
-    };
-
-    sessionData.lastPayDay = {
-      time: 'no info',
-      earnedAZCoins: 0,
-      earnedExp: 0,
-      totalEarned: 0,
-      salary: 0,
-      deposit: 0,
-      dividends: 0,
-    };
-    broadcastSessionData();
-  }, 120000);
-
+  if (playerTimeout) clearTimeout(playerTimeout);
+  handlePlayerDisconnect();
   res.status(200).send({ status: 'ok' });
 });
 

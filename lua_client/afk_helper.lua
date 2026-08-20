@@ -91,19 +91,6 @@ function main()
     isHiddenStatsRequested = true
     sampSendChat('/stats')
 
-    --sampRegisterChatCommand("testpd", function()
-    --    sampAddChatMessage("{00FF00}[AFK Helper] {FFFFFF}Запускаю симуляцию часового PayDay...", -1)
-    --    sampEvents.onServerMessage(0xFFFFFF, " ? БАНКОВСКИЙ ЧЕК ?")
-    --    sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма в банке: ? 4 ? 364.036 (+? 1 ? 83.509)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| В данный момент у вас 78-й уровень и 129/316 респектов (+8 EXP)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма на депозите: ? 289 ? 424.100 (+? 981.996)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Общая заработная плата: ? 1 ? 83.509")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Баланс на донат-счет: 2741 AZ (+8 AZ)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
-    --    sampEvents.onServerMessage(0xFFFFFF, "Вы получили +? 30.000 за Дивидентный договор (выдается каждый часовой PayDay)")
-    --end)
-
     sampRegisterChatCommand('afkhelper', function(arg)
         if #arg == 0 then
             sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Использование: /afkhelper [настройка] [true/false]', -1)
@@ -124,6 +111,7 @@ function main()
 
     lua_thread.create(function()
         local lastGetTime = os.clock()
+        local lastPingTime = os.clock()
 
         while true do
             wait(20)
@@ -133,10 +121,20 @@ function main()
                 local success, jsonData = pcall(cjson.encode, req.data)
 
                 if success and jsonData then
-                    requests.post(API_URL .. req.endpoint, {
+                    local response = requests.post(API_URL .. req.endpoint, {
                         headers = { ['Content-Type'] = 'application/json' },
                         data = jsonData
                     })
+
+                    if response and response.status_code == 200 then
+                        pcall(function()
+                            local resData = cjson.decode(response.text)
+                            if req.endpoint == '/ping' and resData.status == 'needs_auth' then
+                                isHiddenStatsRequested = true
+                                sampSendChat('/stats')
+                            end
+                        end)
+                    end
                 end
             elseif os.clock() - lastGetTime >= 1.0 then
                 lastGetTime = os.clock()
@@ -151,6 +149,14 @@ function main()
                             end
                         end
                     end)
+                end
+            end
+
+            if os.clock() - lastPingTime >= 10.0 then
+                lastPingTime = os.clock()
+
+                if sampGetGamestate() == 3 and sampIsLocalPlayerSpawned() then
+                    sendDataAsync('/ping', { status = 'Online' })
                 end
             end
         end
