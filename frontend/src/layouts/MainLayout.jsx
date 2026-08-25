@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sider from '../components/sider/Sider.jsx';
-import { MobileHeader } from '../components/mobileHeader/MobileHeader.jsx'; // Убедись, что путь правильный
+import { MobileHeader } from '../components/mobileHeader/MobileHeader.jsx';
 
 export default function MainLayout({ sessionData, settings, onToggle }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
