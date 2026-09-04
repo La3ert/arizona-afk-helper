@@ -15,7 +15,9 @@ app.use(express.json());
 
 const io = new Server(server, { cors: corsOptions });
 
-let sessionData = {
+const activeSessions = new Map();
+
+const createEmptySession = () => ({
   settings: {
     chatForwarding: true,
     payDayStats: true,
@@ -34,7 +36,7 @@ let sessionData = {
     depositBalance: 0,
     AZCoinsBalance: 0,
   },
-  session: {
+  sessionStats: {
     totalEarnedAZCoins: 0,
     totalEarnedExp: 0,
     totalEarned: 0,
@@ -53,28 +55,105 @@ let sessionData = {
     deposit: 0,
     dividends: 0,
   },
+  pendingMessages: [],
+  messageId: 0,
+  timers: {
+    disconnectTimer: null,
+    playerTimeout: null,
+  },
+});
+
+io.on('connection', (socket) => {
+  console.log('⚡ React-client connected! ID:', socket.id);
+
+  socket.on('register_new_code', (newCode, callback) => {
+    if (activeSessions.has(newCode)) {
+      console.log(`⚠️ Collision detected! Code already exists: ${newCode}`);
+      callback({ exists: true });
+    } else {
+      activeSessions.set(newCode, createEmptySession());
+
+      socket.join(newCode);
+      socket.sessionCode = newCode;
+
+      console.log(`✅ New session registered: ${newCode}`);
+      callback({ exists: false });
+    }
+  });
+
+  socket.on('verify_code', (code, callback) => {
+    if (activeSessions.has(code)) {
+      socket.join(code);
+      socket.sessionCode = code;
+
+      console.log(`🔗 Browser joined session: ${code}`);
+
+      const sessionData = activeSessions.get(code);
+
+      socket.emit('settings_update', sessionData.settings);
+      socket.emit('sessionData', {
+        settings: sessionData.settings,
+        player: sessionData.player,
+        session: sessionData.sessionStats,
+        lastPayDay: sessionData.lastPayDay,
+      });
+
+      callback({ valid: true });
+    } else {
+      console.log(`❌ Connection failed. Code not found: ${code}`);
+      callback({ valid: false });
+    }
+  });
+
+  socket.on('toggle_setting', (data) => {
+    const code = socket.sessionCode;
+    if (code && activeSessions.has(code)) {
+      const sessionData = activeSessions.get(code);
+      sessionData.settings[data.key] = data.value;
+
+      console.log(`⚙️ [${code}] Setting updated: ${data.key} = ${data.value}`);
+
+      io.to(code).emit('settings_update', sessionData.settings);
+    }
+  });
+
+  socket.on('client_message', (data) => {
+    const code = socket.sessionCode;
+    if (code && activeSessions.has(code)) {
+      const sessionData = activeSessions.get(code);
+      console.log(`💻 [${code}] Message from client:`, data.message);
+
+      sessionData.pendingMessages.push(data.message);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ React-client disconnected! ID:', socket.id);
+  });
+});
+
+// ==========================================
+
+const broadcastSessionData = (sessionKey, session) => {
+  io.to(sessionKey).emit('sessionData', {
+    settings: session.settings,
+    player: session.player,
+    session: session.sessionStats,
+    lastPayDay: session.lastPayDay,
+  });
 };
 
-let disconnectTimer = null;
-let messageId = 0;
-let pendingMessages = [];
-let playerTimeout = null; // Наш таймер пульса
+function handlePlayerDisconnect(sessionKey, session) {
+  session.player.isOnline = false;
+  session.player.isAuthorized = false;
 
-const broadcastSessionData = () => {
-  io.emit('sessionData', sessionData);
-};
+  broadcastSessionData(sessionKey, session);
 
-function handlePlayerDisconnect() {
-  sessionData.player.isOnline = false;
-  sessionData.player.isAuthorized = false;
+  if (!session.timers.disconnectTimer) {
+    session.timers.disconnectTimer = setTimeout(() => {
+      console.log(`💀 [${sessionKey}] Session expired.`);
 
-  broadcastSessionData();
-
-  if (!disconnectTimer) {
-    disconnectTimer = setTimeout(() => {
-      console.log('💀 Session expired.');
-
-      sessionData.session = {
+      session.sessionStats = {
         totalEarnedAZCoins: 0,
         totalEarnedExp: 0,
         totalEarned: 0,
@@ -85,52 +164,63 @@ function handlePlayerDisconnect() {
         hourlyPayDays: 0,
       };
 
-      broadcastSessionData();
-      disconnectTimer = null;
+      broadcastSessionData(sessionKey, session);
+      session.timers.disconnectTimer = null;
     }, 120000);
   }
 }
 
-io.on('connection', (socket) => {
-  console.log('⚡ React-client connected! ID:', socket.id);
+// ==========================================
 
-  socket.emit('settings_update', sessionData.settings);
-  socket.emit('sessionData', sessionData);
+const requireSession = (req, res, next) => {
+  const key = req.body?.sessionKey || req.query?.sessionKey;
 
-  socket.on('toggle_setting', (data) => {
-    sessionData.settings[data.key] = data.value;
-    console.log(`⚙️ Setting updated: ${data.key} = ${data.value}`);
-    io.emit('settings_update', sessionData.settings);
-  });
+  if (!key || !activeSessions.has(key)) {
+    return res.status(401).send({
+      status: 'error',
+      message: 'Unauthorized: Invalid or missing sessionKey',
+    });
+  }
 
-  socket.on('client_message', (data) => {
-    console.log('💻 Catch message from client:', data.message);
-    pendingMessages.push(data.message);
-  });
+  req.session = activeSessions.get(key);
+  req.sessionKey = key;
+  next();
+};
 
-  socket.on('disconnect', () => {
-    console.log('❌ React-client disconnected!. ID:', socket.id);
-  });
-});
+// ==========================================
 
-//###########################################################
+app.post('/api/verify-key', (req, res) => {
+  const { sessionKey } = req.body;
 
-app.get('/api/get-messages', (req, res) => {
-  res.json({ messages: pendingMessages });
-
-  if (pendingMessages.length > 0) {
-    pendingMessages = [];
+  if (activeSessions.has(sessionKey)) {
+    console.log(`🔑 Lua script successfully verified key: ${sessionKey}`);
+    res.status(200).send({ valid: true });
+  } else {
+    console.log(
+      `❌ Lua script attempted to link an invalid key: ${sessionKey}`
+    );
+    res.status(200).send({ valid: false });
   }
 });
 
-app.post('/api/settings', (req, res) => {
+app.get('/api/get-messages', requireSession, (req, res) => {
+  res.json({ messages: req.session.pendingMessages });
+
+  if (req.session.pendingMessages.length > 0) {
+    req.session.pendingMessages = [];
+  }
+});
+
+app.post('/api/settings', requireSession, (req, res) => {
   const { key, value } = req.body;
 
-  if (sessionData.settings[key] !== undefined) {
-    sessionData.settings[key] = value;
-    console.log(`🎮 Настройка изменена из игры: ${key} = ${value}`);
+  if (req.session.settings[key] !== undefined) {
+    req.session.settings[key] = value;
+    console.log(
+      `🎮 [${req.sessionKey}] Setting changed from game: ${key} = ${value}`
+    );
 
-    io.emit('settings_update', sessionData.settings);
+    io.to(req.sessionKey).emit('settings_update', req.session.settings);
 
     res.status(200).send({ status: 'ok' });
   } else {
@@ -138,76 +228,81 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
-app.post('/api/chat', (req, res) => {
-  if (sessionData.settings.chatForwarding) {
-    const message = { ...req.body, id: messageId++ };
-    io.emit('chat_message', message);
+app.post('/api/chat', requireSession, (req, res) => {
+  if (req.session.settings.chatForwarding) {
+    const message = { ...req.body, id: req.session.messageId++ };
+    io.to(req.sessionKey).emit('chat_message', message);
   }
   res.status(200).send({ status: 'ok' });
 });
 
-app.post('/api/connect', (req, res) => {
+app.post('/api/connect', requireSession, (req, res) => {
   console.log(
-    `🎮 Player ${req.body.nickname} connected to server ${req.body.server}`
+    `🎮 [${req.sessionKey}] Player ${req.body.nickname} connected to server ${req.body.server}`
   );
-  sessionData.player.nickname = req.body.nickname;
-  sessionData.player.server = req.body.server;
-  sessionData.player.isOnline = true;
 
-  if (disconnectTimer) {
-    clearTimeout(disconnectTimer);
-    disconnectTimer = null;
+  req.session.player.nickname = req.body.nickname;
+  req.session.player.server = req.body.server;
+  req.session.player.isOnline = true;
+
+  if (req.session.timers.disconnectTimer) {
+    clearTimeout(req.session.timers.disconnectTimer);
+    req.session.timers.disconnectTimer = null;
   }
 
-  if (playerTimeout) clearTimeout(playerTimeout);
-  playerTimeout = setTimeout(() => {
-    handlePlayerDisconnect();
+  if (req.session.timers.playerTimeout)
+    clearTimeout(req.session.timers.playerTimeout);
+
+  req.session.timers.playerTimeout = setTimeout(() => {
+    handlePlayerDisconnect(req.sessionKey, req.session);
   }, 25000);
 
-  broadcastSessionData();
+  broadcastSessionData(req.sessionKey, req.session);
   res.status(200).send({ status: 'ok' });
 });
 
-app.post('/api/auth', (req, res) => {
-  console.log(`✅ Player authorized!`);
-  sessionData.player.isAuthorized = true;
-  sessionData.player.level = req.body.level;
-  sessionData.player.curExp = req.body.curExp;
-  sessionData.player.maxExp = req.body.maxExp;
-  sessionData.player.bankBalance = req.body.bankBalance;
-  sessionData.player.depositBalance = req.body.depositBalance;
-  sessionData.player.AZCoinsBalance = req.body.AZCoinsBalance;
+app.post('/api/auth', requireSession, (req, res) => {
+  console.log(`✅ [${req.sessionKey}] Player authorized!`);
 
-  broadcastSessionData();
+  req.session.player.isAuthorized = true;
+  req.session.player.level = req.body.level;
+  req.session.player.curExp = req.body.curExp;
+  req.session.player.maxExp = req.body.maxExp;
+  req.session.player.bankBalance = req.body.bankBalance;
+  req.session.player.depositBalance = req.body.depositBalance;
+  req.session.player.AZCoinsBalance = req.body.AZCoinsBalance;
+
+  broadcastSessionData(req.sessionKey, req.session);
   res.status(200).send({ status: 'ok' });
 });
 
-app.post('/api/ping', (req, res) => {
-  if (playerTimeout) clearTimeout(playerTimeout);
+app.post('/api/ping', requireSession, (req, res) => {
+  if (req.session.timers.playerTimeout)
+    clearTimeout(req.session.timers.playerTimeout);
 
-  if (disconnectTimer) {
-    clearTimeout(disconnectTimer);
-    disconnectTimer = null;
+  if (req.session.timers.disconnectTimer) {
+    clearTimeout(req.session.timers.disconnectTimer);
+    req.session.timers.disconnectTimer = null;
   }
 
-  if (!sessionData.player.isOnline) {
-    sessionData.player.isOnline = true;
-    broadcastSessionData();
+  if (!req.session.player.isOnline) {
+    req.session.player.isOnline = true;
+    broadcastSessionData(req.sessionKey, req.session);
   }
 
-  playerTimeout = setTimeout(() => {
-    handlePlayerDisconnect();
+  req.session.timers.playerTimeout = setTimeout(() => {
+    handlePlayerDisconnect(req.sessionKey, req.session);
   }, 25000);
 
-  if (!sessionData.player.isAuthorized) {
+  if (!req.session.player.isAuthorized) {
     return res.status(200).send({ status: 'needs_auth' });
   }
 
   res.status(200).send({ status: 'ok' });
 });
 
-app.post('/api/payday', (req, res) => {
-  console.log(`💰 PayDay is arrived!`);
+app.post('/api/payday', requireSession, (req, res) => {
+  console.log(`💰 [${req.sessionKey}] PayDay is arrived!`);
 
   const {
     salary,
@@ -226,19 +321,19 @@ app.post('/api/payday', (req, res) => {
 
   const hourTotal = (salary || 0) + (deposit || 0) + (dividends || 0);
 
-  sessionData.player.level = level;
-  sessionData.player.curExp = curExp;
-  sessionData.player.maxExp = maxExp;
-  sessionData.player.bankBalance = bankBalance;
-  sessionData.player.depositBalance = depositBalance;
-  sessionData.player.AZCoinsBalance = AZCoinsBalance;
-  sessionData.session.totalPayDays++;
+  req.session.player.level = level;
+  req.session.player.curExp = curExp;
+  req.session.player.maxExp = maxExp;
+  req.session.player.bankBalance = bankBalance;
+  req.session.player.depositBalance = depositBalance;
+  req.session.player.AZCoinsBalance = AZCoinsBalance;
+  req.session.sessionStats.totalPayDays++;
 
   if (hourlyPayDay) {
-    sessionData.session.hourlyPayDays++;
+    req.session.sessionStats.hourlyPayDays++;
   }
 
-  sessionData.lastPayDay = {
+  req.session.lastPayDay = {
     time: Date.now(),
     earnedAZCoins: earnedAZCoins || 0,
     earnedExp: earnedExp || 0,
@@ -248,30 +343,31 @@ app.post('/api/payday', (req, res) => {
     totalEarned: hourTotal,
   };
 
-  sessionData.session.totalEarnedAZCoins += earnedAZCoins || 0;
-  sessionData.session.totalEarnedExp += earnedExp || 0;
-  sessionData.session.totalSalary += salary || 0;
-  sessionData.session.totalDeposit += deposit || 0;
-  sessionData.session.totalDividends += dividends || 0;
-  sessionData.session.totalEarned += hourTotal;
+  req.session.sessionStats.totalEarnedAZCoins += earnedAZCoins || 0;
+  req.session.sessionStats.totalEarnedExp += earnedExp || 0;
+  req.session.sessionStats.totalSalary += salary || 0;
+  req.session.sessionStats.totalDeposit += deposit || 0;
+  req.session.sessionStats.totalDividends += dividends || 0;
+  req.session.sessionStats.totalEarned += hourTotal;
 
-  broadcastSessionData();
+  broadcastSessionData(req.sessionKey, req.session);
   res.status(200).send({ status: 'ok', serverComputedTotal: hourTotal });
 });
 
-app.post('/api/disconnect', (req, res) => {
-  if (playerTimeout) clearTimeout(playerTimeout);
-  handlePlayerDisconnect();
+app.post('/api/disconnect', requireSession, (req, res) => {
+  if (req.session.timers.playerTimeout)
+    clearTimeout(req.session.timers.playerTimeout);
+  handlePlayerDisconnect(req.sessionKey, req.session);
   res.status(200).send({ status: 'ok' });
 });
 
-//############################################################
+// ==========================================
 
 app.get('/', (req, res) => {
   res.send('AFK Helper Backend is running! 🚀');
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🚀 Sever is successfully started on http://localhost:${PORT}`);
+  console.log(`🚀 Server is successfully started on port ${PORT}`);
 });

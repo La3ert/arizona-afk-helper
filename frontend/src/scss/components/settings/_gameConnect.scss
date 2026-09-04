@@ -48,8 +48,52 @@
     color: var(--text-muted);
   }
 
-  .btn {
+  &__generate-btn {
     width: 100%;
     margin-bottom: 1rem;
+  }
+
+  &__input-group {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  &__connect-btn {
+    width: auto;
+    margin-bottom: 0;
+    height: auto;
+    flex-shrink: 0;
+    padding: 0 2rem;
+  }
+
+  &__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    background-color: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1rem 1.5rem;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &::placeholder {
+      color: var(--border-color);
+    }
+
+    &:focus {
+      border-color: #ff7b00;
+      box-shadow: 0 0 0 2px rgba(255, 123, 0, 0.15);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
 }
