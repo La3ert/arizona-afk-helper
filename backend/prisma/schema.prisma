@@ -1,0 +1,64 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  sessionKey     String   @id
+  chatForwarding Boolean  @default(true)
+  payDayStats    Boolean  @default(true)
+  remoteControl  Boolean  @default(false)
+  auto2FA        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  players Player[]
+}
+
+model Player {
+  id        Int    @id @default(autoincrement())
+  accountId Int
+  server    String
+  userKey   String
+  user      User   @relation(fields: [userKey], references: [sessionKey], onDelete: Cascade)
+
+  nickname String
+  level    Int    @default(0)
+  curExp   Int    @default(0)
+  maxExp   Int    @default(0)
+
+  bankBalance    BigInt @default(0)
+  depositBalance BigInt @default(0)
+  AZCoinsBalance Int    @default(0)
+
+  sessions Session[]
+
+  @@unique([accountId, server])
+}
+
+model Session {
+  id       Int    @id @default(autoincrement())
+  playerId Int
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  startTime DateTime  @default(now())
+  endTime   DateTime?
+
+  payDays PayDayEvent[]
+}
+
+model PayDayEvent {
+  id        Int     @id @default(autoincrement())
+  sessionId Int
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  timestamp     DateTime @default(now())
+  salary        Int      @default(0)
+  deposit       Int      @default(0)
+  dividends     Int      @default(0)
+  earnedAZCoins Int      @default(0)
+}

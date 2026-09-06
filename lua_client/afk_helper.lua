@@ -8,12 +8,19 @@ local sampEvents = require'lib.samp.events'
 local cjson = require'cjson'
 local requests = require'requests'
 local bit = require'bit'
-
+local inicfg = require'inicfg'
 local encoding = require'encoding'
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 local API_URL = 'http://localhost:3000/api'
+
+local configFileName = 'afk_helper.ini'
+local defaultConfig = {
+    main = { sessionKey = '' }
+}
+local config = inicfg.load(defaultConfig, configFileName)
+inicfg.save(config, configFileName)
 
 local isHiddenStatsRequested = false
 local isParsingPayDay = false
@@ -53,6 +60,10 @@ local function parseMoney(str)
 end
 
 local function sendDataAsync(endpoint, dataTable)
+    if not config.main.sessionKey or config.main.sessionKey == '' then return end
+
+    dataTable.sessionKey = config.main.sessionKey
+
     table.insert(httpQueue, {
         endpoint = endpoint,
         data = dataTable
@@ -65,54 +76,84 @@ function main()
         wait(100)
     end
 
-    sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Скрипт успешно загружен/перезагружен!', -1)
+    sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Скрипт успешно загружен!', -1)
 
-    local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
-    local myNick = sampGetPlayerNickname(myId)
-    local serverName = 'Arizona RP'
-
-    sendDataAsync('/connect', {
-        nickname = myNick,
-        server = serverName
-    })
+    if config.main.sessionKey == '' then
+        sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Ключ не настроен! Введите {FCAA4D}/afkhelper key ВАШ-КЛЮЧ', -1)
+    end
 
     while not sampIsLocalPlayerSpawned() do
         wait(500)
     end
 
-    sendDataAsync('/auth', {
-        level = sampGetPlayerScore(myId),
-        curExp = 0,
-        maxExp = 0,
-        bankBalance = 0,
-        depositBalance = 0
-    })
-
-    isHiddenStatsRequested = true
-    sampSendChat('/stats')
-
-    --sampRegisterChatCommand("testpd", function()
-    --    sampAddChatMessage("{00FF00}[AFK Helper] {FFFFFF}Запускаю симуляцию часового PayDay...", -1)
-    --    sampEvents.onServerMessage(0xFFFFFF, " ? БАНКОВСКИЙ ЧЕК ?")
-    --    sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма в банке: ? 4 ? 364.036 (+? 1 ? 83.509)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| В данный момент у вас 78-й уровень и 129/316 респектов (+8 EXP)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Текущая сумма на депозите: ? 289 ? 424.100 (+? 981.996)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Общая заработная плата: ? 1 ? 83.509")
-    --    sampEvents.onServerMessage(0xFFFFFF, "| Баланс на донат-счет: 2741 AZ (+8 AZ)")
-    --    sampEvents.onServerMessage(0xFFFFFF, "==========================================================================")
-    --    sampEvents.onServerMessage(0xFFFFFF, "Вы получили +? 30.000 за Дивидентный договор (выдается каждый часовой PayDay)")
-    --end)
+    if config.main.sessionKey ~= '' then
+        sendDataAsync('/connect', {})
+        isHiddenStatsRequested = true
+        sampSendChat('/stats')
+    end
 
     sampRegisterChatCommand('afkhelper', function(arg)
         if #arg == 0 then
-            sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Использование: /afkhelper [настройка] [true/false]', -1)
-            sampAddChatMessage('{FCAA4D}[Доступные] {FFFFFF}chatForwarding, payDayStats, remoteControl, auto2FA', -1)
+            sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Использование: /afkhelper [команда] [значение]', -1)
+            sampAddChatMessage('{FCAA4D}[Привязка] {FFFFFF}key [ВАШ-КЛЮЧ]', -1)
+            sampAddChatMessage(
+                '{FCAA4D}[Настройки] {FFFFFF}chatForwarding, payDayStats, remoteControl, auto2FA (true/false)',
+                -1
+            )
             return
         end
 
         local flagName, flagValueStr = string.match(arg, '^(%S+)%s+(%S+)$')
         if not flagName or not flagValueStr then return end
+
+        if flagName == 'key' then
+            local testKey = flagValueStr:upper()
+
+            lua_thread.create(function()
+                sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Проверка ключа на сервере...', -1)
+
+                local response = requests.post(API_URL .. '/verify-key', {
+                    headers = { ['Content-Type'] = 'application/json' },
+                    data = cjson.encode({ sessionKey = testKey })
+                })
+
+                if response and response.status_code == 200 then
+                    local resData = cjson.decode(response.text)
+                    if resData.valid then
+                        config.main.sessionKey = testKey
+                        inicfg.save(config, configFileName)
+                        sampAddChatMessage(
+                            '{00FF00}[AFK Helper] {FFFFFF}Успех! Дашборд привязан к ключу: ' .. testKey,
+                            -1
+                        )
+
+                        local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
+
+                        sendDataAsync('/connect', {
+                            nickname = sampGetPlayerNickname(myId),
+                            server = 'Arizona RP'
+                        })
+
+                        sendDataAsync('/auth', {
+                            level = sampGetPlayerScore(myId),
+                            curExp = 0,
+                            maxExp = 0,
+                            bankBalance = 0,
+                            depositBalance = 0
+                        })
+
+                        isHiddenStatsRequested = true
+                        sampSendChat('/stats')
+                    else
+                        sampAddChatMessage('{FF0000}[AFK Helper] {FFFFFF}Ошибка: Ключ не найден на сервере!', -1)
+                    end
+                else
+                    sampAddChatMessage('{FF0000}[AFK Helper] {FFFFFF}Ошибка соединения с сервером.', -1)
+                end
+            end)
+            return
+        end
+
         if flagName == 'auto2FA' then return end
 
         local flagValue = (flagValueStr == 'true')
@@ -124,6 +165,7 @@ function main()
 
     lua_thread.create(function()
         local lastGetTime = os.clock()
+        local lastPingTime = os.clock()
 
         while true do
             wait(20)
@@ -133,24 +175,45 @@ function main()
                 local success, jsonData = pcall(cjson.encode, req.data)
 
                 if success and jsonData then
-                    requests.post(API_URL .. req.endpoint, {
+                    local response = requests.post(API_URL .. req.endpoint, {
                         headers = { ['Content-Type'] = 'application/json' },
                         data = jsonData
                     })
+
+                    if response and response.status_code == 200 then
+                        pcall(function()
+                            local resData = cjson.decode(response.text)
+                            if req.endpoint == '/ping' and resData.status == 'needs_auth' then
+                                isHiddenStatsRequested = true
+                                sampSendChat('/stats')
+                            end
+                        end)
+                    end
                 end
             elseif os.clock() - lastGetTime >= 1.0 then
                 lastGetTime = os.clock()
 
-                local response = requests.get(API_URL .. '/get-messages')
-                if response and response.status_code == 200 then
-                    pcall(function()
-                        local data = cjson.decode(response.text)
-                        if data.messages and #data.messages > 0 then
-                            for _, msg in ipairs(data.messages) do
-                                sampSendChat(u8:decode(msg))
+                if config.main.sessionKey ~= '' then
+                    local getUrl = API_URL .. '/get-messages?sessionKey=' .. config.main.sessionKey
+                    local response = requests.get(getUrl)
+                    if response and response.status_code == 200 then
+                        pcall(function()
+                            local data = cjson.decode(response.text)
+                            if data.messages and #data.messages > 0 then
+                                for _, msg in ipairs(data.messages) do
+                                    sampSendChat(u8:decode(msg))
+                                end
                             end
-                        end
-                    end)
+                        end)
+                    end
+                end
+            end
+
+            if os.clock() - lastPingTime >= 10.0 then
+                lastPingTime = os.clock()
+
+                if sampGetGamestate() == 3 and sampIsLocalPlayerSpawned() then
+                    sendDataAsync('/ping', { status = 'Online' })
                 end
             end
         end
@@ -164,11 +227,15 @@ end
 function onScriptTerminate(script, quitGame)
     if script == thisScript() then
         pcall(function()
-            local jsonData = cjson.encode({})
-            requests.post(API_URL .. '/disconnect', {
-                headers = { ['Content-Type'] = 'application/json' },
-                data = jsonData
-            })
+            local payload = {}
+            if config.main.sessionKey and config.main.sessionKey ~= '' then
+                payload.sessionKey = config.main.sessionKey
+                local jsonData = cjson.encode(payload)
+                requests.post(API_URL .. '/disconnect', {
+                    headers = { ['Content-Type'] = 'application/json' },
+                    data = jsonData
+                })
+            end
         end)
     end
 end
@@ -212,6 +279,13 @@ function sampEvents.onServerMessage(color, text)
 
     if not isParsingPayDay and plainText:find('БАНКОВСКИЙ ЧЕК') then
         isParsingPayDay = true
+
+        local currentMinute = tonumber(os.date('%M'))
+        local isHourly = false
+        if currentMinute >= 58 or currentMinute <= 15 then
+            isHourly = true
+        end
+
         pdData = {
             salary = 0,
             deposit = 0,
@@ -222,15 +296,20 @@ function sampEvents.onServerMessage(color, text)
             curExp = 0,
             maxExp = 0,
             bankBalance = 0,
-            depositBalance = 0
+            depositBalance = 0,
+            AZCoinsBalance = 0,
+            hourlyPayDay = isHourly
         }
 
+        isHiddenStatsRequested = true
+        sampSendChat('/stats')
+
         lua_thread.create(function()
-            wait(1000)
+            wait(2000)
             if isParsingPayDay then
                 isParsingPayDay = false
                 sendDataAsync('/payday', pdData)
-                sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Данные PayDay успешно собраны и отправлены!', -1)
+                sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Данные PayDay и балансы успешно собраны!', -1)
             end
         end)
         return
@@ -238,18 +317,7 @@ function sampEvents.onServerMessage(color, text)
 
     if isParsingPayDay then
         pcall(function()
-            if plainText:find('банке:') then
-                local mainPart = plainText:match('банке:([^%(]+)')
-                if mainPart then
-                    pdData.bankBalance = parseMoney(mainPart)
-                end
-            end
-
             if plainText:find('уровень') and plainText:find('респект') then
-                local lvl, cur, max = plainText:match('(%d+)%-.-(%d+)/(%d+)')
-                if lvl then
-                    pdData.level, pdData.curExp, pdData.maxExp = tonumber(lvl), tonumber(cur), tonumber(max)
-                end
                 local expPart = plainText:match('%(([^%)]+)%)')
                 if expPart then
                     pdData.earnedExp = parseMoney(expPart)
@@ -257,11 +325,7 @@ function sampEvents.onServerMessage(color, text)
             end
 
             if plainText:find('депозите:') then
-                local mainPart = plainText:match('депозите:([^%(]+)')
                 local earnPart = plainText:match('%(([^%)]+)%)')
-                if mainPart then
-                    pdData.depositBalance = parseMoney(mainPart)
-                end
                 if earnPart then
                     pdData.deposit = parseMoney(earnPart)
                 end
@@ -291,25 +355,57 @@ function sampEvents.onServerMessage(color, text)
     end
 end
 
-function sampEvents.onShowDialog(dialogId, style, title, button1, button2, text)
-    if isHiddenStatsRequested and title:find('Основная статистика') then
+function sampEvents.onShowDialog(dialogId, _style, title, _button1, _button2, text)
+    if isHiddenStatsRequested and (title:find('Основная статистика') or title:find('ОСНОВНАЯ СТАТИСТИКА')) then
         isHiddenStatsRequested = false
-        local plainText = text:gsub('{%x+}', '')
 
-        local levelNum = tonumber(plainText:match('Уровень:%s*%[(%d+)%]')) or sampGetPlayerScore(myId)
-        local curExpNum = tonumber(plainText:match('Уважение:%s*%[(%d+)/')) or 0
-        local maxExpNum = tonumber(plainText:match('Уважение:%s*%[%d+/(%d+)%]')) or 0
+        local plainText = text:gsub('{.-}', '')
 
-        local bankLine = plainText:match('Деньги в банке:([^\n]+)')
-        local depLine = plainText:match('Деньги на депозите:([^\n]+)')
+        local file = io.open(getWorkingDirectory() .. '\\dialog_dump.txt', 'w')
+        if file then
+            file:write(plainText)
+            file:close()
+            sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Сырой диалог сохранен в папку moonloader!', -1)
+        end
 
-        sendDataAsync('/auth', {
-            level = levelNum,
-            curExp = curExpNum,
-            maxExp = maxExpNum,
-            bankBalance = parseMoney(bankLine),
-            depositBalance = parseMoney(depLine)
-        })
+        local rawServerName = sampGetCurrentServerName()
+        local currentServer = rawServerName:match('|%s*(.+)') or 'Arizona RP'
+
+        local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
+
+        local nickName = plainText:match('Имя.-([%w_]+)') or sampGetPlayerNickname(myId)
+        local accountIdNum = tonumber(plainText:match('%[№.-(%d+)%]')) or 0
+        local levelNum = tonumber(plainText:match('Уровень.-(%d+)')) or sampGetPlayerScore(myId)
+
+        local curExpStr, maxExpStr = plainText:match('Уважение.-(%d+)/(%d+)')
+        local curExpNum = tonumber(curExpStr) or 0
+        local maxExpNum = tonumber(maxExpStr) or 0
+
+        local bankLine = plainText:match('банке.-([%d%.]+)')
+        local depLine = plainText:match('депозите.-([%d%.]+)')
+        local azLine = plainText:match('состояние счета.-([%d%.]+)') or plainText:match('AZ%-Coins.-([%d%.]+)')
+
+        if isParsingPayDay then
+            pdData.accountId = accountIdNum
+            pdData.level = levelNum
+            pdData.curExp = curExpNum
+            pdData.maxExp = maxExpNum
+            pdData.bankBalance = parseMoney(bankLine)
+            pdData.depositBalance = parseMoney(depLine)
+            pdData.AZCoinsBalance = parseMoney(azLine)
+        else
+            sendDataAsync('/auth', {
+                accountId = accountIdNum,
+                nickname = nickName,
+                server = currentServer,
+                level = levelNum,
+                curExp = curExpNum,
+                maxExp = maxExpNum,
+                bankBalance = parseMoney(bankLine),
+                depositBalance = parseMoney(depLine),
+                AZCoinsBalance = parseMoney(azLine)
+            })
+        end
 
         sampSendDialogResponse(dialogId, 0, 0, '')
         return false

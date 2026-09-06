@@ -21,13 +21,13 @@ export default function Analytics({ session, lastPayDay }) {
       <div className='analytics__charts-wrapper'>
         <DonutChart
           title='THIS PAYDAY'
-          data={payDayData}
+          data={payDayData.filter((item) => item.value > 0)}
           totalValue={`$ ${(lastPayDay.totalEarned / 1000000).toFixed(2)}M`}
         />
 
         <DonutChart
           title='TOTAL FOR SESSION'
-          data={sessionData}
+          data={sessionData.filter((item) => item.value > 0)}
           totalValue={`$ ${(session.totalEarned / 1000000).toFixed(2)}M`}
         />
       </div>

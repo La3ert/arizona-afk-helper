@@ -7,6 +7,10 @@ export default function ChatAndCommands({ chatMessages, onSendMessage, settings 
     onSendMessage(text);
   };
 
+  if (!settings) {
+    return <div style={{ color: 'white', padding: '2rem' }}>Loading settings...</div>;
+  }
+
   return (
     <div className='chat-page'>
       <Title title={'Chat and Commands'} />

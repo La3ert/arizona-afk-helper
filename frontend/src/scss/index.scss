@@ -12,8 +12,6 @@
 @use 'components/donautChart';
 @use 'components/title';
 @use 'components/button';
-@use "components/chatIcon";
-@use "components/dynamicIcon";
 
 @use 'components/sider/navbar';
 @use 'components/sider/header';
@@ -28,3 +26,5 @@
 
 @use 'components/settings/gameConnect';
 @use 'components/settings/UILanguage';
+
+@use 'components/mobileHeader/mobileHeader';

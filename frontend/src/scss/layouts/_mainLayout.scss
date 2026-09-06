@@ -1,16 +1,22 @@
 .main-layout {
   display: flex;
   height: 100vh;
-  border: 2px solid var(--accent-primary);
-  border-radius: 2rem;
   overflow: hidden;
-  box-shadow: var(--shadow);
+
+  @media (max-width: 1010px) {
+    flex-direction: column;
+  }
 }
 
 .content-area {
   flex: 1;
   overflow-y: auto;
   padding: 2rem;
+
+  @media (max-width: 1010px) {
+    padding: 1rem;
+  }
+
   &::-webkit-scrollbar {
     width: 8px;
   }

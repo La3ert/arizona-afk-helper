@@ -7,20 +7,68 @@ import Settings from './pages/Settings.jsx';
 import { io } from 'socket.io-client';
 import { useEffect, useState } from 'react';
 
-const socket = io('http://localhost:3000');
+const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000');
+
+const defaultSettings = {
+  chatForwarding: true,
+  payDayStats: true,
+  remoteControl: false,
+  auto2FA: false,
+};
+
+const defaultSessionData = {
+  player: {
+    nickname: 'No info',
+    server: 'No info',
+    isOnline: false,
+    isAuthorized: false,
+    level: 0,
+    curExp: 0,
+    maxExp: 0,
+    bankBalance: 0,
+    depositBalance: 0,
+    AZCoinsBalance: 0,
+  },
+  session: {
+    totalEarnedAZCoins: 0,
+    totalEarnedExp: 0,
+    totalEarned: 0,
+    totalSalary: 0,
+    totalDeposit: 0,
+    totalDividends: 0,
+    totalPayDays: 0,
+    hourlyPayDays: 0,
+  },
+  lastPayDay: {
+    time: null,
+    earnedAZCoins: 0,
+    earnedExp: 0,
+    totalEarned: 0,
+    salary: 0,
+    deposit: 0,
+    dividends: 0,
+  },
+};
 
 function App() {
   const [messages, setMessages] = useState([]);
-  const [sessionData, setSessionData] = useState(null);
-  const [settings, setSettings] = useState(null);
+  const [sessionData, setSessionData] = useState(defaultSessionData);
+  const [settings, setSettings] = useState(defaultSettings);
 
   useEffect(() => {
+    const savedKey = localStorage.getItem('afk_helper_key');
+    if (savedKey) {
+      console.log('🔄 Found saved key, verifying session...', savedKey);
+      socket.emit('verify_code', savedKey, (response) => {
+        if (!response.valid) {
+          console.warn('❌ Session expired or server restarted. Please generate a new key.');
+        }
+      });
+    }
+
     socket.on('chat_message', (data) => {
       console.log('📥 Catch message from server:', data);
-
-      setMessages((prevMessages) => {
-        return [...prevMessages, data];
-      });
+      setMessages((prevMessages) => [...prevMessages, data]);
     });
 
     socket.on('sessionData', (data) => {
@@ -70,7 +118,7 @@ function App() {
               />
             }
           />
-          <Route path='settings' element={<Settings />} />
+          <Route path='settings' element={<Settings socket={socket} />} />
 
           <Route path='*' element={<Navigate to='/' replace />} />
         </Route>
