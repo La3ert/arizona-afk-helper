@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+    container_name: arizona-afk-helper_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://afk_admin:F9J6rLsX65@db:5432/afk_database?schema=public
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: arizona-afk_helper_db
+    restart: always
+    environment:
+      - POSTGRES_USER=afk_admin
+      - POSTGRES_PASSWORD=F9J6rLsX65
+      - POSTGRES_DB=afk_database
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
