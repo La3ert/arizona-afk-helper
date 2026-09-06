@@ -10,7 +10,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://afk_admin:F9J6rLsX65@db:5432/afk_database?schema=public
+      - DATABASE_URL=postgresql://afk_admin:${DB_PASSWORD}:5432/afk_database?schema=public
     depends_on:
       - db
 
@@ -20,7 +20,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=afk_admin
-      - POSTGRES_PASSWORD=F9J6rLsX65
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=afk_database
     volumes:
       - pgdata:/var/lib/postgresql/data
