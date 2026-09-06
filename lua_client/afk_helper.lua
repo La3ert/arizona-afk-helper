@@ -1,7 +1,7 @@
 ---@diagnostic disable: undefined-global
 script_name('AFK Helper Client')
 script_author('la3ert & AI')
-script_version('1.0')
+script_version('1.3 - Async Queue')
 
 require'lib.moonloader'
 local sampEvents = require'lib.samp.events'
@@ -10,10 +10,11 @@ local requests = require'requests'
 local bit = require'bit'
 local inicfg = require'inicfg'
 local encoding = require'encoding'
+local effil = require'effil'
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
-local API_URL = 'http://arizona-afk-helper.duckdns.org:3000/api'
+local API_URL = 'https://arizona-afk-helper.duckdns.org/api'
 
 local configFileName = 'afk_helper.ini'
 local defaultConfig = {
@@ -26,7 +27,51 @@ local isHiddenStatsRequested = false
 local isParsingPayDay = false
 local pdData = {}
 
-local httpQueue = {}
+local chatQueue = {}
+local isSendingChat = false
+local lastMessageText = ''
+local lastMessageTime = 0
+
+local function asyncHttpRequest(method, url, args, callback)
+    local runner = effil.thread(function(thread_method, thread_url, thread_args)
+        local thread_req = require'requests'
+        local result, response
+        if thread_method == 'GET' then
+            result, response = pcall(thread_req.get, thread_url, thread_args)
+        else
+            result, response = pcall(thread_req.post, thread_url, thread_args)
+        end
+        if result and response then
+            return {
+                status_code = response.status_code,
+                text = response.text
+            }
+        else
+            return nil, response and tostring(response) or 'Unknown error'
+        end
+    end)
+
+    lua_thread.create(function()
+        local thread = runner(method, url, args)
+        while true do
+            local status = thread:status()
+            if status == 'completed' then
+                local response, err = thread:get()
+                if callback then
+                    callback(response, err)
+                end
+                break
+            elseif status == 'canceled' or status == 'failed' then
+                local err = thread:get()
+                if callback then
+                    callback(nil, err)
+                end
+                break
+            end
+            wait(0)
+        end
+    end)
+end
 
 local function parseMoney(str)
     if type(str) ~= 'string' then
@@ -61,13 +106,30 @@ end
 
 local function sendDataAsync(endpoint, dataTable)
     if not config.main.sessionKey or config.main.sessionKey == '' then return end
-
     dataTable.sessionKey = config.main.sessionKey
 
-    table.insert(httpQueue, {
-        endpoint = endpoint,
-        data = dataTable
-    })
+    local success, jsonData = pcall(cjson.encode, dataTable)
+    if success and jsonData then
+        asyncHttpRequest(
+            'POST',
+            API_URL .. endpoint,
+            {
+                headers = { ['Content-Type'] = 'application/json' },
+                data = jsonData
+            },
+            function(response)
+                if response and response.status_code == 200 then
+                    pcall(function()
+                        local resData = cjson.decode(response.text)
+                        if endpoint == '/ping' and resData.status == 'needs_auth' then
+                            isHiddenStatsRequested = true
+                            sampSendChat('/stats')
+                        end
+                    end)
+                end
+            end
+        )
+    end
 end
 
 function main()
@@ -76,7 +138,7 @@ function main()
         wait(100)
     end
 
-    sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Скрипт успешно загружен!', -1)
+    sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Скрипт загружен!', -1)
 
     if config.main.sessionKey == '' then
         sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Ключ не настроен! Введите {FCAA4D}/afkhelper key ВАШ-КЛЮЧ', -1)
@@ -108,49 +170,48 @@ function main()
 
         if flagName == 'key' then
             local testKey = flagValueStr:upper()
+            sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Проверка ключа на сервере...', -1)
 
-            lua_thread.create(function()
-                sampAddChatMessage('{FCAA4D}[AFK Helper] {FFFFFF}Проверка ключа на сервере...', -1)
-
-                local response = requests.post(API_URL .. '/verify-key', {
+            asyncHttpRequest(
+                'POST',
+                API_URL .. '/verify-key',
+                {
                     headers = { ['Content-Type'] = 'application/json' },
                     data = cjson.encode({ sessionKey = testKey })
-                })
+                },
+                function(response)
+                    if response and response.status_code == 200 then
+                        local resData = cjson.decode(response.text)
+                        if resData.valid then
+                            config.main.sessionKey = testKey
+                            inicfg.save(config, configFileName)
+                            sampAddChatMessage(
+                                '{00FF00}[AFK Helper] {FFFFFF}Успех! Дашборд привязан к ключу: ' .. testKey,
+                                -1
+                            )
 
-                if response and response.status_code == 200 then
-                    local resData = cjson.decode(response.text)
-                    if resData.valid then
-                        config.main.sessionKey = testKey
-                        inicfg.save(config, configFileName)
-                        sampAddChatMessage(
-                            '{00FF00}[AFK Helper] {FFFFFF}Успех! Дашборд привязан к ключу: ' .. testKey,
-                            -1
-                        )
-
-                        local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
-
-                        sendDataAsync('/connect', {
-                            nickname = sampGetPlayerNickname(myId),
-                            server = 'Arizona RP'
-                        })
-
-                        sendDataAsync('/auth', {
-                            level = sampGetPlayerScore(myId),
-                            curExp = 0,
-                            maxExp = 0,
-                            bankBalance = 0,
-                            depositBalance = 0
-                        })
-
-                        isHiddenStatsRequested = true
-                        sampSendChat('/stats')
+                            local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
+                            sendDataAsync('/connect', {
+                                nickname = sampGetPlayerNickname(myId),
+                                server = 'Arizona RP'
+                            })
+                            sendDataAsync('/auth', {
+                                level = sampGetPlayerScore(myId),
+                                curExp = 0,
+                                maxExp = 0,
+                                bankBalance = 0,
+                                depositBalance = 0
+                            })
+                            isHiddenStatsRequested = true
+                            sampSendChat('/stats')
+                        else
+                            sampAddChatMessage('{FF0000}[AFK Helper] {FFFFFF}Ошибка: Ключ не найден!', -1)
+                        end
                     else
-                        sampAddChatMessage('{FF0000}[AFK Helper] {FFFFFF}Ошибка: Ключ не найден на сервере!', -1)
+                        sampAddChatMessage('{FF0000}[AFK Helper] {FFFFFF}Ошибка соединения с сервером.', -1)
                     end
-                else
-                    sampAddChatMessage('{FF0000}[AFK Helper] {FFFFFF}Ошибка соединения с сервером.', -1)
                 end
-            end)
+            )
             return
         end
 
@@ -164,57 +225,61 @@ function main()
     end)
 
     lua_thread.create(function()
-        local lastGetTime = os.clock()
-        local lastPingTime = os.clock()
-
         while true do
-            wait(20)
+            wait(10)
+            if #chatQueue > 0 and not isSendingChat and config.main.sessionKey ~= '' then
+                isSendingChat = true
+                local chatData = table.remove(chatQueue, 1)
+                chatData.sessionKey = config.main.sessionKey
 
-            if #httpQueue > 0 then
-                local req = table.remove(httpQueue, 1)
-                local success, jsonData = pcall(cjson.encode, req.data)
-
+                local success, jsonData = pcall(cjson.encode, chatData)
                 if success and jsonData then
-                    local response = requests.post(API_URL .. req.endpoint, {
-                        headers = { ['Content-Type'] = 'application/json' },
-                        data = jsonData
-                    })
-
-                    if response and response.status_code == 200 then
-                        pcall(function()
-                            local resData = cjson.decode(response.text)
-                            if req.endpoint == '/ping' and resData.status == 'needs_auth' then
-                                isHiddenStatsRequested = true
-                                sampSendChat('/stats')
-                            end
-                        end)
-                    end
+                    asyncHttpRequest(
+                        'POST',
+                        API_URL .. '/chat',
+                        {
+                            headers = { ['Content-Type'] = 'application/json' },
+                            data = jsonData
+                        },
+                        function(response)
+                            isSendingChat = false
+                        end
+                    )
+                else
+                    isSendingChat = false
                 end
-            elseif os.clock() - lastGetTime >= 1.0 then
-                lastGetTime = os.clock()
+            end
+        end
+    end)
 
-                if config.main.sessionKey ~= '' then
-                    local getUrl = API_URL .. '/get-messages?sessionKey=' .. config.main.sessionKey
-                    local response = requests.get(getUrl)
+    lua_thread.create(function()
+        while true do
+            wait(1500)
+            if config.main.sessionKey ~= '' then
+                local getUrl = API_URL .. '/get-messages?sessionKey=' .. config.main.sessionKey
+                asyncHttpRequest('GET', getUrl, {}, function(response)
                     if response and response.status_code == 200 then
                         pcall(function()
                             local data = cjson.decode(response.text)
                             if data.messages and #data.messages > 0 then
                                 for _, msg in ipairs(data.messages) do
-                                    sampSendChat(u8:decode(msg))
+                                    if type(msg) == 'string' then
+                                        sampSendChat(u8:decode(msg))
+                                    end
                                 end
                             end
                         end)
                     end
-                end
+                end)
             end
+        end
+    end)
 
-            if os.clock() - lastPingTime >= 10.0 then
-                lastPingTime = os.clock()
-
-                if sampGetGamestate() == 3 and sampIsLocalPlayerSpawned() then
-                    sendDataAsync('/ping', { status = 'Online' })
-                end
+    lua_thread.create(function()
+        while true do
+            wait(10000)
+            if config.main.sessionKey ~= '' and sampGetGamestate() == 3 and sampIsLocalPlayerSpawned() then
+                sendDataAsync('/ping', { status = 'Online' })
             end
         end
     end)
@@ -241,7 +306,14 @@ function onScriptTerminate(script, quitGame)
 end
 
 function sampEvents.onServerMessage(color, text)
+    local currentTime = os.clock()
+    if text == lastMessageText and (currentTime - lastMessageTime) < 1.0 then return end
+    lastMessageText = text
+    lastMessageTime = currentTime
+
     local plainText = text:gsub('{%x+}', '')
+
+    if plainText:match('^%s*$') then return end
 
     local cleanRGB = bit.band(bit.rshift(color, 8), 0xFFFFFF)
     local baseColor = string.format('#%06X', cleanRGB)
@@ -272,14 +344,13 @@ function sampEvents.onServerMessage(color, text)
         })
     end
 
-    sendDataAsync('/chat', {
+    table.insert(chatQueue, {
         time = os.date('%H:%M:%S'),
         parts = chatParts
     })
 
     if not isParsingPayDay and plainText:find('БАНКОВСКИЙ ЧЕК') then
         isParsingPayDay = true
-
         local currentMinute = tonumber(os.date('%M'))
         local isHourly = false
         if currentMinute >= 58 or currentMinute <= 15 then
@@ -358,21 +429,11 @@ end
 function sampEvents.onShowDialog(dialogId, _style, title, _button1, _button2, text)
     if isHiddenStatsRequested and (title:find('Основная статистика') or title:find('ОСНОВНАЯ СТАТИСТИКА')) then
         isHiddenStatsRequested = false
-
         local plainText = text:gsub('{.-}', '')
-
-        local file = io.open(getWorkingDirectory() .. '\\dialog_dump.txt', 'w')
-        if file then
-            file:write(plainText)
-            file:close()
-            sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Сырой диалог сохранен в папку moonloader!', -1)
-        end
-
         local rawServerName = sampGetCurrentServerName()
         local currentServer = rawServerName:match('|%s*(.+)') or 'Arizona RP'
 
         local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
-
         local nickName = plainText:match('Имя.-([%w_]+)') or sampGetPlayerNickname(myId)
         local accountIdNum = tonumber(plainText:match('%[№.-(%d+)%]')) or 0
         local levelNum = tonumber(plainText:match('Уровень.-(%d+)')) or sampGetPlayerScore(myId)

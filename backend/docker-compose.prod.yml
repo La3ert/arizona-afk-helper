@@ -6,7 +6,6 @@ services:
       context: .
     container_name: arizona_backend
     restart: always
-    # СТРОКИ С PORTS УДАЛЕНЫ - теперь бэкенд не торчит наружу напрямую!
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://afk_admin:${DB_PASSWORD}@db:5432/afk_database?schema=public
