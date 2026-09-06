@@ -11,6 +11,9 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=postgresql://afk_admin:secretpassword@db:5432/afk_database?schema=public
+    depends_on:
+      - db
 
   frontend:
     build:
@@ -22,3 +25,19 @@ services:
       - /app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
+
+  db:
+    image: postgres:15-alpine
+    container_name: afk_helper_db
+    restart: always
+    environment:
+      - POSTGRES_USER=afk_admin
+      - POSTGRES_PASSWORD=secretpassword
+      - POSTGRES_DB=afk_database
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

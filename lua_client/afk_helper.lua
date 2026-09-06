@@ -87,23 +87,7 @@ function main()
     end
 
     if config.main.sessionKey ~= '' then
-        local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
-        local myNick = sampGetPlayerNickname(myId)
-        local serverName = 'Arizona RP'
-
-        sendDataAsync('/connect', {
-            nickname = myNick,
-            server = serverName
-        })
-
-        sendDataAsync('/auth', {
-            level = sampGetPlayerScore(myId),
-            curExp = 0,
-            maxExp = 0,
-            bankBalance = 0,
-            depositBalance = 0
-        })
-
+        sendDataAsync('/connect', {})
         isHiddenStatsRequested = true
         sampSendChat('/stats')
     end
@@ -371,37 +355,55 @@ function sampEvents.onServerMessage(color, text)
     end
 end
 
-function sampEvents.onShowDialog(dialogId, style, title, button1, button2, text)
-    if isHiddenStatsRequested and title:find('Основная статистика') then
+function sampEvents.onShowDialog(dialogId, _style, title, _button1, _button2, text)
+    if isHiddenStatsRequested and (title:find('Основная статистика') or title:find('ОСНОВНАЯ СТАТИСТИКА')) then
         isHiddenStatsRequested = false
-        local plainText = text:gsub('{%x+}', '')
 
-        local levelNum = tonumber(plainText:match('Уровень:%s*%[(%d+)%]')) or sampGetPlayerScore(PLAYER_PED)
-        local curExpNum = tonumber(plainText:match('Уважение:%s*%[(%d+)/')) or 0
-        local maxExpNum = tonumber(plainText:match('Уважение:%s*%[%d+/(%d+)%]')) or 0
+        local plainText = text:gsub('{.-}', '')
 
-        local bankLine = plainText:match('Деньги в банке:([^\n]+)')
-        local depLine = plainText:match('Деньги на депозите:([^\n]+)')
+        local file = io.open(getWorkingDirectory() .. '\\dialog_dump.txt', 'w')
+        if file then
+            file:write(plainText)
+            file:close()
+            sampAddChatMessage('{00FF00}[AFK Helper] {FFFFFF}Сырой диалог сохранен в папку moonloader!', -1)
+        end
 
-        local azLine =
-            plainText:match('состояние счета:([^\n]+AZ%-Coins[^\n]*)') or plainText:match('AZ%-Coins:([^\n]+)')
-        local azBalanceNum = parseMoney(azLine)
+        local rawServerName = sampGetCurrentServerName()
+        local currentServer = rawServerName:match('|%s*(.+)') or 'Arizona RP'
+
+        local _, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
+
+        local nickName = plainText:match('Имя.-([%w_]+)') or sampGetPlayerNickname(myId)
+        local accountIdNum = tonumber(plainText:match('%[№.-(%d+)%]')) or 0
+        local levelNum = tonumber(plainText:match('Уровень.-(%d+)')) or sampGetPlayerScore(myId)
+
+        local curExpStr, maxExpStr = plainText:match('Уважение.-(%d+)/(%d+)')
+        local curExpNum = tonumber(curExpStr) or 0
+        local maxExpNum = tonumber(maxExpStr) or 0
+
+        local bankLine = plainText:match('банке.-([%d%.]+)')
+        local depLine = plainText:match('депозите.-([%d%.]+)')
+        local azLine = plainText:match('состояние счета.-([%d%.]+)') or plainText:match('AZ%-Coins.-([%d%.]+)')
 
         if isParsingPayDay then
+            pdData.accountId = accountIdNum
             pdData.level = levelNum
             pdData.curExp = curExpNum
             pdData.maxExp = maxExpNum
             pdData.bankBalance = parseMoney(bankLine)
             pdData.depositBalance = parseMoney(depLine)
-            pdData.AZCoinsBalance = azBalanceNum
+            pdData.AZCoinsBalance = parseMoney(azLine)
         else
             sendDataAsync('/auth', {
+                accountId = accountIdNum,
+                nickname = nickName,
+                server = currentServer,
                 level = levelNum,
                 curExp = curExpNum,
                 maxExp = maxExpNum,
                 bankBalance = parseMoney(bankLine),
                 depositBalance = parseMoney(depLine),
-                AZCoinsBalance = azBalanceNum
+                AZCoinsBalance = parseMoney(azLine)
             })
         end
 
