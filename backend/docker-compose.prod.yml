@@ -4,15 +4,28 @@ services:
   backend:
     build:
       context: .
-    container_name: arizona-afk-helper_backend
+    container_name: arizona_backend
     restart: always
-    ports:
-      - "3000:3000"
+    # СТРОКИ С PORTS УДАЛЕНЫ - теперь бэкенд не торчит наружу напрямую!
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://afk_admin:${DB_PASSWORD}:5432/afk_database?schema=public
+      - DATABASE_URL=postgresql://afk_admin:${DB_PASSWORD}@db:5432/afk_database?schema=public
     depends_on:
       - db
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy_server
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
 
   db:
     image: postgres:15-alpine
@@ -27,3 +40,5 @@ services:
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
