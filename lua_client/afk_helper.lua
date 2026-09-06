@@ -13,7 +13,7 @@ local encoding = require'encoding'
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
-local API_URL = 'http://localhost:3000/api'
+local API_URL = 'http://arizona-afk-helper.duckdns.org:3000/api'
 
 local configFileName = 'afk_helper.ini'
 local defaultConfig = {
