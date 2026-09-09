@@ -370,7 +370,7 @@ app.post('/api/auth', requireSession, async (req, res) => {
   const {
     accountId,
     nickname,
-    server, // <-- Достаем сервер из запроса
+    server,
     level,
     curExp,
     maxExp,

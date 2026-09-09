@@ -25,6 +25,8 @@ inicfg.save(config, configFileName)
 
 local isHiddenStatsRequested = false
 local isParsingPayDay = false
+local isFetchingMessages = false
+local activeHttpRequests = {}
 local pdData = {}
 
 local chatQueue = {}
@@ -32,45 +34,39 @@ local isSendingChat = false
 local lastMessageText = ''
 local lastMessageTime = 0
 
-local function asyncHttpRequest(method, url, args, callback)
-    local runner = effil.thread(function(thread_method, thread_url, thread_args)
-        local thread_req = require'requests'
-        local result, response
-        if thread_method == 'GET' then
-            result, response = pcall(thread_req.get, thread_url, thread_args)
-        else
-            result, response = pcall(thread_req.post, thread_url, thread_args)
-        end
-        if result and response then
-            return {
-                status_code = response.status_code,
-                text = response.text
-            }
-        else
-            return nil, response and tostring(response) or 'Unknown error'
-        end
-    end)
+local asyncHttpRunner = effil.thread(function(thread_method, thread_url, thread_args)
+    local thread_req = require'requests'
 
-    lua_thread.create(function()
-        local thread = runner(method, url, args)
-        while true do
-            local status = thread:status()
-            if status == 'completed' then
-                local response, err = thread:get()
-                if callback then
-                    callback(response, err)
-                end
-                break
-            elseif status == 'canceled' or status == 'failed' then
-                local err = thread:get()
-                if callback then
-                    callback(nil, err)
-                end
-                break
-            end
-            wait(0)
-        end
-    end)
+    if not thread_args then
+        thread_args = {}
+    end
+    if not thread_args.timeout then
+        thread_args.timeout = 5
+    end
+
+    local result, response
+    if thread_method == 'GET' then
+        result, response = pcall(thread_req.get, thread_url, thread_args)
+    else
+        result, response = pcall(thread_req.post, thread_url, thread_args)
+    end
+
+    if result and response then
+        return {
+            status_code = response.status_code,
+            text = response.text
+        }
+    else
+        return nil, response and tostring(response) or 'Unknown error'
+    end
+end)
+
+local function asyncHttpRequest(method, url, args, callback)
+    local thread = asyncHttpRunner(method, url, args)
+    table.insert(activeHttpRequests, {
+        thread = thread,
+        callback = callback
+    })
 end
 
 local function parseMoney(str)
@@ -119,13 +115,13 @@ local function sendDataAsync(endpoint, dataTable)
             },
             function(response)
                 if response and response.status_code == 200 then
-                    pcall(function()
-                        local resData = cjson.decode(response.text)
+                    local decodeSuccess, resData = pcall(cjson.decode, response.text)
+                    if decodeSuccess and type(resData) == 'table' then
                         if endpoint == '/ping' and resData.status == 'needs_auth' then
                             isHiddenStatsRequested = true
                             sampSendChat('/stats')
                         end
-                    end)
+                    end
                 end
             end
         )
@@ -181,8 +177,8 @@ function main()
                 },
                 function(response)
                     if response and response.status_code == 200 then
-                        local resData = cjson.decode(response.text)
-                        if resData.valid then
+                        local success, resData = pcall(cjson.decode, response.text)
+                        if success and type(resData) == 'table' and resData.valid then
                             config.main.sessionKey = testKey
                             inicfg.save(config, configFileName)
                             sampAddChatMessage(
@@ -194,13 +190,6 @@ function main()
                             sendDataAsync('/connect', {
                                 nickname = sampGetPlayerNickname(myId),
                                 server = 'Arizona RP'
-                            })
-                            sendDataAsync('/auth', {
-                                level = sampGetPlayerScore(myId),
-                                curExp = 0,
-                                maxExp = 0,
-                                bankBalance = 0,
-                                depositBalance = 0
                             })
                             isHiddenStatsRequested = true
                             sampSendChat('/stats')
@@ -255,12 +244,15 @@ function main()
     lua_thread.create(function()
         while true do
             wait(1500)
-            if config.main.sessionKey ~= '' then
+            if config.main.sessionKey ~= '' and not isFetchingMessages then
+                isFetchingMessages = true
                 local getUrl = API_URL .. '/get-messages?sessionKey=' .. config.main.sessionKey
                 asyncHttpRequest('GET', getUrl, {}, function(response)
+                    isFetchingMessages = false
                     if response and response.status_code == 200 then
-                        pcall(function()
-                            local data = cjson.decode(response.text)
+                        local success, data = pcall(cjson.decode, response.text)
+
+                        if success and type(data) == 'table' then
                             if data.messages and #data.messages > 0 then
                                 for _, msg in ipairs(data.messages) do
                                     if type(msg) == 'string' then
@@ -268,7 +260,7 @@ function main()
                                     end
                                 end
                             end
-                        end)
+                        end
                     end
                 end)
             end
@@ -286,6 +278,23 @@ function main()
 
     while true do
         wait(0)
+        for i = #activeHttpRequests, 1, -1 do
+            local req = activeHttpRequests[i]
+            local status = req.thread:status()
+            if status == 'completed' then
+                local response, err = req.thread:get()
+                table.remove(activeHttpRequests, i)
+                if req.callback then
+                    req.callback(response, err)
+                end
+            elseif status == 'canceled' or status == 'failed' then
+                local err = req.thread:get()
+                table.remove(activeHttpRequests, i)
+                if req.callback then
+                    req.callback(nil, err)
+                end
+            end
+        end
     end
 end
 
